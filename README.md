@@ -4,6 +4,7 @@ A comprehensive web-based language learning application that helps users develop
 
 ## Features
 
+
 - **Create Lessons**: Create new language lessons by pasting text from any source
 - **Content Management**: Access, view, edit, and delete saved lessons
 - **ReadAloud**: Text-to-speech functionality with voice, speed, and playback controls
