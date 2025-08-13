@@ -553,26 +553,57 @@ async function translateContent() {
     }
 }
 
-// Translate text using LibreTranslate API
+// Translate text using Google Translate API
 async function translateText(text, sourceLang, targetLang) {
-    const response = await fetch('https://translate.argosopentech.com/translate', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            q: text,
-            source: sourceLang === 'auto' ? 'auto' : sourceLang,
-            target: targetLang
-        })
-    });
+    // Use Google Translate API with fallback
+    const apiKey = config.googleTranslateApiKey;
     
-    if (!response.ok) {
-        throw new Error(`Translation failed: ${response.status}`);
+    if (apiKey && apiKey !== 'YOUR_GOOGLE_TRANSLATE_API_KEY') {
+        // Use official Google Translate API
+        const url = `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`;
+        
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    q: text,
+                    source: sourceLang === 'auto' ? 'auto' : sourceLang,
+                    target: targetLang,
+                    format: 'text'
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Translation failed: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return data.data.translations[0].translatedText;
+        } catch (error) {
+            console.error('Official API translation error:', error);
+            // Fall through to fallback service
+        }
     }
     
-    const data = await response.json();
-    return data.translatedText;
+    // Fallback to Google Translate web service (no API key required)
+    if (config.useFallbackTranslation) {
+        try {
+            const fallbackUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang === 'auto' ? 'auto' : sourceLang}&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
+            
+            const fallbackResponse = await fetch(fallbackUrl);
+            if (fallbackResponse.ok) {
+                const fallbackData = await fallbackResponse.json();
+                return fallbackData[0][0][0];
+            }
+        } catch (fallbackError) {
+            console.error('Fallback translation error:', fallbackError);
+        }
+    }
+    
+    throw new Error('Translation service unavailable. Please try again later.');
 }
 
 // Update drills section
@@ -722,6 +753,15 @@ function startRecording() {
                 document.getElementById('reRecordBtn').disabled = false;
                 document.getElementById('stopRecordingBtn').disabled = true;
                 document.getElementById('startRecordingBtn').disabled = false;
+                
+                // Stop all tracks
+                stream.getTracks().forEach(track => track.stop());
+            };
+            
+            mediaRecorder.onerror = (event) => {
+                console.error('MediaRecorder error:', event);
+                alert('Recording error occurred. Please try again.');
+                stopRecording();
             };
             
             mediaRecorder.start();
@@ -731,20 +771,29 @@ function startRecording() {
             document.getElementById('stopRecordingBtn').disabled = false;
             document.getElementById('playRecordingBtn').disabled = true;
             document.getElementById('reRecordBtn').disabled = true;
+            
+            console.log('Drill recording started');
         })
         .catch(error => {
             console.error('Error accessing microphone:', error);
-            alert('Error accessing microphone. Please check permissions.');
+            alert('Error accessing microphone. Please check permissions and try again.');
         });
 }
 
 function stopRecording() {
     if (mediaRecorder && isRecording) {
-        mediaRecorder.stop();
-        isRecording = false;
-        
-        // Stop all tracks
-        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        try {
+            mediaRecorder.stop();
+            isRecording = false;
+            console.log('Drill recording stopped');
+        } catch (error) {
+            console.error('Error stopping drill recording:', error);
+            // Force stop by stopping all tracks
+            if (mediaRecorder.stream) {
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+            isRecording = false;
+        }
     }
 }
 
@@ -823,6 +872,15 @@ function startMainRecording() {
                 document.getElementById('saveRecordingBtn').disabled = false;
                 document.getElementById('stopMainRecordingBtn').disabled = true;
                 document.getElementById('startMainRecordingBtn').disabled = false;
+                
+                // Stop all tracks
+                stream.getTracks().forEach(track => track.stop());
+            };
+            
+            mediaRecorder.onerror = (event) => {
+                console.error('MediaRecorder error:', event);
+                alert('Recording error occurred. Please try again.');
+                stopMainRecording();
             };
             
             mediaRecorder.start();
@@ -832,20 +890,29 @@ function startMainRecording() {
             document.getElementById('stopMainRecordingBtn').disabled = false;
             document.getElementById('playMainRecordingBtn').disabled = true;
             document.getElementById('saveRecordingBtn').disabled = true;
+            
+            console.log('Recording started');
         })
         .catch(error => {
             console.error('Error accessing microphone:', error);
-            alert('Error accessing microphone. Please check permissions.');
+            alert('Error accessing microphone. Please check permissions and try again.');
         });
 }
 
 function stopMainRecording() {
     if (mediaRecorder && isRecording) {
-        mediaRecorder.stop();
-        isRecording = false;
-        
-        // Stop all tracks
-        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        try {
+            mediaRecorder.stop();
+            isRecording = false;
+            console.log('Recording stopped');
+        } catch (error) {
+            console.error('Error stopping recording:', error);
+            // Force stop by stopping all tracks
+            if (mediaRecorder.stream) {
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+            isRecording = false;
+        }
     }
 }
 
