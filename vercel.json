@@ -12,6 +12,14 @@
     {
       "src": "*.js",
       "use": "@vercel/static"
+    },
+    {
+      "src": "*.svg",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "*.ico",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -34,6 +42,20 @@
       "dest": "/config.js",
       "headers": {
         "Content-Type": "application/javascript"
+      }
+    },
+    {
+      "src": "/favicon.svg",
+      "dest": "/favicon.svg",
+      "headers": {
+        "Content-Type": "image/svg+xml"
+      }
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "/favicon.ico",
+      "headers": {
+        "Content-Type": "image/x-icon"
       }
     },
     {

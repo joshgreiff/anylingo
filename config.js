@@ -1,11 +1,17 @@
 // Configuration file for AnyLingo
 const config = {
-    // Google Translate API Key
-    // Get your API key from: https://console.cloud.google.com/apis/credentials
-    googleTranslateApiKey: 'YOUR_GOOGLE_TRANSLATE_API_KEY',
-    
-    // Fallback translation service (no API key required)
-    useFallbackTranslation: true,
+    // Translation settings
+    translation: {
+        // Use free translation services (no API key required)
+        useFreeService: true,
+        
+        // Optional: Google Translate API Key (for premium service)
+        // Get your API key from: https://console.cloud.google.com/apis/credentials
+        googleTranslateApiKey: 'YOUR_GOOGLE_TRANSLATE_API_KEY',
+        
+        // Fallback services
+        fallbackServices: ['google', 'mymemory']
+    },
     
     // App settings
     appName: 'AnyLingo',

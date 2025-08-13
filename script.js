@@ -553,57 +553,37 @@ async function translateContent() {
     }
 }
 
-// Translate text using Google Translate API
+// Translate text using free translation service
 async function translateText(text, sourceLang, targetLang) {
-    // Use Google Translate API with fallback
-    const apiKey = config.googleTranslateApiKey;
-    
-    if (apiKey && apiKey !== 'YOUR_GOOGLE_TRANSLATE_API_KEY') {
-        // Use official Google Translate API
-        const url = `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`;
+    // Use free Google Translate service (no API key required)
+    try {
+        const fallbackUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang === 'auto' ? 'auto' : sourceLang}&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
         
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    q: text,
-                    source: sourceLang === 'auto' ? 'auto' : sourceLang,
-                    target: targetLang,
-                    format: 'text'
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`Translation failed: ${response.status}`);
-            }
-            
+        const response = await fetch(fallbackUrl);
+        if (response.ok) {
             const data = await response.json();
-            return data.data.translations[0].translatedText;
-        } catch (error) {
-            console.error('Official API translation error:', error);
-            // Fall through to fallback service
+            return data[0][0][0];
+        } else {
+            throw new Error(`Translation failed: ${response.status}`);
         }
-    }
-    
-    // Fallback to Google Translate web service (no API key required)
-    if (config.useFallbackTranslation) {
+    } catch (error) {
+        console.error('Translation error:', error);
+        
+        // Try alternative free translation service
         try {
-            const fallbackUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang === 'auto' ? 'auto' : sourceLang}&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
+            const alternativeUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLang === 'auto' ? 'auto' : sourceLang}|${targetLang}`;
             
-            const fallbackResponse = await fetch(fallbackUrl);
-            if (fallbackResponse.ok) {
-                const fallbackData = await fallbackResponse.json();
-                return fallbackData[0][0][0];
+            const altResponse = await fetch(alternativeUrl);
+            if (altResponse.ok) {
+                const altData = await altResponse.json();
+                return altData.responseData.translatedText;
             }
-        } catch (fallbackError) {
-            console.error('Fallback translation error:', fallbackError);
+        } catch (altError) {
+            console.error('Alternative translation error:', altError);
         }
+        
+        throw new Error('Translation service unavailable. Please try again later.');
     }
-    
-    throw new Error('Translation service unavailable. Please try again later.');
 }
 
 // Update drills section
