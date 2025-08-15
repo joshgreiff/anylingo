@@ -10,6 +10,19 @@ let isPlaying = false;
 let isLooping = false;
 let speechSynthesisSupported = false;
 
+// User preferences (persistent settings)
+let userPreferences = {
+    speechRate: 1.0,
+    targetLanguage: 'en',
+    selectedText: null,
+    highlightedWords: []
+};
+
+// Text highlighting variables
+let currentHighlightedWord = null;
+let highlightInterval = null;
+let wordBoundaries = [];
+
 // Recording variables
 let mediaRecorder = null;
 let audioChunks = [];
@@ -55,6 +68,9 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error loading current lesson:', error);
         }
     }
+    
+    // Load user preferences
+    loadUserPreferences();
     
     // Initialize language options
     initLanguageOptions();
@@ -152,6 +168,9 @@ function setupEventListeners() {
     document.getElementById('stopMainRecordingBtn').addEventListener('click', stopMainRecording);
     document.getElementById('playMainRecordingBtn').addEventListener('click', playMainRecording);
     document.getElementById('saveRecordingBtn').addEventListener('click', saveRecording);
+    
+    // Setup text selection for translation
+    setupTextSelection();
 }
 
 // Show a specific section
@@ -217,6 +236,24 @@ function loadLessons() {
             lessons = {};
         }
     }
+}
+
+// Load user preferences from localStorage
+function loadUserPreferences() {
+    const savedPreferences = localStorage.getItem('userPreferences');
+    if (savedPreferences) {
+        try {
+            const saved = JSON.parse(savedPreferences);
+            userPreferences = { ...userPreferences, ...saved };
+        } catch (error) {
+            console.error('Error loading user preferences:', error);
+        }
+    }
+}
+
+// Save user preferences to localStorage
+function saveUserPreferences() {
+    localStorage.setItem('userPreferences', JSON.stringify(userPreferences));
 }
 
 // Save lessons to localStorage
@@ -379,17 +416,42 @@ function startReading() {
     }
     
     utterance.rate = rate;
+    
+    // Calculate estimated duration for word highlighting
+    const words = currentLesson.content.split(/\s+/);
+    const wordsPerMinute = 150 * rate; // Approximate words per minute
+    estimatedDuration = (words.length / wordsPerMinute) * 60; // Duration in seconds
+    speechStartTime = Date.now();
+    
+    utterance.onstart = () => {
+        isPlaying = true;
+        updateReadingButtons();
+        // Start word highlighting
+        startWordHighlighting();
+    };
+    
     utterance.onend = () => {
         isPlaying = false;
+        clearWordHighlights();
         updateReadingButtons();
         if (isLooping) {
             setTimeout(startReading, 1000);
         }
     };
     
+    utterance.onpause = () => {
+        isPlaying = false;
+        clearWordHighlights();
+        updateReadingButtons();
+    };
+    
+    utterance.onresume = () => {
+        isPlaying = true;
+        updateReadingButtons();
+        startWordHighlighting();
+    };
+    
     synth.speak(utterance);
-    isPlaying = true;
-    updateReadingButtons();
 }
 
 // Pause reading
@@ -397,6 +459,7 @@ function pauseReading() {
     if (synth && isPlaying) {
         synth.pause();
         isPlaying = false;
+        clearWordHighlights();
         updateReadingButtons();
     }
 }
@@ -407,6 +470,7 @@ function stopReading() {
         synth.cancel();
         isPlaying = false;
         isLooping = false;
+        clearWordHighlights();
         updateReadingButtons();
         document.getElementById('loopReadingBtn').textContent = 'Loop OFF';
     }
@@ -430,7 +494,137 @@ function updateReadingButtons() {
 function updateRate() {
     const rate = document.getElementById('rateRange').value;
     document.getElementById('rateValue').textContent = rate;
+    
+    // Save user preference
+    userPreferences.speechRate = parseFloat(rate);
+    saveUserPreferences();
 }
+
+// Apply saved user preferences to UI
+function applyUserPreferences() {
+    // Apply speech rate
+    if (userPreferences.speechRate) {
+        const rateRange = document.getElementById('rateRange');
+        const rateValue = document.getElementById('rateValue');
+        if (rateRange && rateValue) {
+            rateRange.value = userPreferences.speechRate;
+            rateValue.textContent = userPreferences.speechRate;
+        }
+    }
+    
+    // Apply target language
+    if (userPreferences.targetLanguage) {
+        const targetLanguage = document.getElementById('targetLanguage');
+        if (targetLanguage) {
+            targetLanguage.value = userPreferences.targetLanguage;
+        }
+    }
+}
+
+// Highlight words during speech synthesis
+function startWordHighlighting() {
+    if (!currentLesson || !isPlaying) return;
+    
+    const content = currentLesson.content;
+    const words = content.split(/\s+/);
+    let currentWordIndex = 0;
+    
+    // Clear any existing highlights
+    clearWordHighlights();
+    
+    // Create word boundaries for highlighting
+    wordBoundaries = [];
+    let currentPos = 0;
+    words.forEach((word, index) => {
+        const wordStart = content.indexOf(word, currentPos);
+        const wordEnd = wordStart + word.length;
+        wordBoundaries.push({
+            word: word,
+            start: wordStart,
+            end: wordEnd,
+            index: index
+        });
+        currentPos = wordEnd;
+    });
+    
+    // Start highlighting words based on speech timing
+    highlightInterval = setInterval(() => {
+        if (!isPlaying) {
+            clearWordHighlights();
+            return;
+        }
+        
+        // Calculate approximate word position based on speech progress
+        const progress = (Date.now() - speechStartTime) / (estimatedDuration * 1000);
+        const targetWordIndex = Math.floor(progress * words.length);
+        
+        if (targetWordIndex !== currentWordIndex && targetWordIndex < words.length) {
+            // Remove previous highlight
+            if (currentHighlightedWord !== null) {
+                removeWordHighlight(currentHighlightedWord);
+            }
+            
+            // Add new highlight
+            currentHighlightedWord = targetWordIndex;
+            addWordHighlight(targetWordIndex);
+        }
+    }, 100); // Update every 100ms
+}
+
+// Add highlight to a specific word
+function addWordHighlight(wordIndex) {
+    const contentElement = document.getElementById('readAloudContent');
+    if (!contentElement || wordIndex >= wordBoundaries.length) return;
+    
+    const boundary = wordBoundaries[wordIndex];
+    const content = currentLesson.content;
+    
+    // Create highlighted version
+    const before = content.substring(0, boundary.start);
+    const word = content.substring(boundary.start, boundary.end);
+    const after = content.substring(boundary.end);
+    
+    contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${before}<span class="bg-green-300 text-green-800 px-1 rounded">${word}</span>${after}</pre>`;
+}
+
+// Remove highlight from a specific word
+function removeWordHighlight(wordIndex) {
+    const contentElement = document.getElementById('readAloudContent');
+    if (!contentElement || wordIndex >= wordBoundaries.length) return;
+    
+    const boundary = wordBoundaries[wordIndex];
+    const content = currentLesson.content;
+    
+    // Remove highlight by restoring original text
+    const before = content.substring(0, boundary.start);
+    const word = content.substring(boundary.start, boundary.end);
+    const after = content.substring(boundary.end);
+    
+    contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${before}${word}${after}</pre>`;
+}
+
+// Clear all word highlights
+function clearWordHighlights() {
+    if (highlightInterval) {
+        clearInterval(highlightInterval);
+        highlightInterval = null;
+    }
+    
+    currentHighlightedWord = null;
+    wordBoundaries = [];
+    
+    // Restore original content
+    if (currentLesson) {
+        const contentElement = document.getElementById('readAloudContent');
+        if (contentElement) {
+            contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${currentLesson.content}</pre>`;
+        }
+    }
+}
+
+// Speech timing variables
+let speechStartTime = 0;
+let estimatedDuration = 0;
 
 // Initialize language options for translation
 function initLanguageOptions() {
@@ -468,8 +662,14 @@ function initLanguageOptions() {
         targetLanguage.appendChild(option);
     });
     
-    // Set default target language to English
-    targetLanguage.value = 'en';
+    // Apply saved user preferences
+    applyUserPreferences();
+    
+    // Add event listener for target language changes
+    targetLanguage.addEventListener('change', function() {
+        userPreferences.targetLanguage = this.value;
+        saveUserPreferences();
+    });
 }
 
 // Update translate section
@@ -488,6 +688,9 @@ function updateTranslateSection() {
     titleElement.textContent = currentLesson.title;
     originalTextElement.innerHTML = `<pre class="whitespace-pre-wrap">${currentLesson.content}</pre>`;
     translateBtn.disabled = false;
+    
+    // Setup text selection for translation
+    setupTextSelection();
 }
 
 // Translate content
@@ -583,6 +786,113 @@ async function translateText(text, sourceLang, targetLang) {
         }
         
         throw new Error('Translation service unavailable. Please try again later.');
+    }
+}
+
+// Handle text selection and highlighting
+function setupTextSelection() {
+    const originalTextElement = document.getElementById('originalText');
+    const translatedTextElement = document.getElementById('translatedText');
+    
+    if (originalTextElement) {
+        originalTextElement.addEventListener('click', handleTextClick);
+        originalTextElement.addEventListener('mouseup', handleTextSelection);
+    }
+    
+    if (translatedTextElement) {
+        translatedTextElement.addEventListener('click', handleTextClick);
+        translatedTextElement.addEventListener('mouseup', handleTextSelection);
+    }
+}
+
+// Handle text click to highlight sentence
+function handleTextClick(event) {
+    const element = event.target;
+    if (element.tagName === 'PRE') {
+        const text = element.textContent;
+        const clickPosition = getClickPosition(element, event);
+        const sentence = findSentenceAtPosition(text, clickPosition);
+        
+        if (sentence) {
+            highlightSentence(element, sentence);
+            userPreferences.selectedText = sentence;
+            saveUserPreferences();
+        }
+    }
+}
+
+// Handle text selection
+function handleTextSelection(event) {
+    const selection = window.getSelection();
+    if (selection.toString().trim()) {
+        userPreferences.selectedText = selection.toString().trim();
+        saveUserPreferences();
+    }
+}
+
+// Get click position in text
+function getClickPosition(element, event) {
+    const rect = element.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // Simple approximation - in a real implementation, you'd use more sophisticated text measurement
+    const lineHeight = 20; // Approximate line height
+    const charWidth = 8; // Approximate character width
+    
+    const line = Math.floor(y / lineHeight);
+    const char = Math.floor(x / charWidth);
+    
+    return { line, char };
+}
+
+// Find sentence at position
+function findSentenceAtPosition(text, position) {
+    const lines = text.split('\n');
+    let charCount = 0;
+    
+    for (let i = 0; i < lines.length; i++) {
+        if (i === position.line) {
+            const line = lines[i];
+            const sentences = line.split(/[.!?]+/);
+            let sentenceStart = 0;
+            
+            for (const sentence of sentences) {
+                const sentenceEnd = sentenceStart + sentence.length;
+                if (charCount + position.char >= sentenceStart && charCount + position.char <= sentenceEnd) {
+                    return sentence.trim();
+                }
+                sentenceStart = sentenceEnd + 1; // +1 for the punctuation
+            }
+        }
+        charCount += lines[i].length + 1; // +1 for newline
+    }
+    
+    return null;
+}
+
+// Highlight sentence in element
+function highlightSentence(element, sentence) {
+    const text = element.textContent;
+    const highlightedText = text.replace(
+        new RegExp(`(${sentence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'g'),
+        '<span class="bg-yellow-200 text-yellow-800 px-1 rounded">$1</span>'
+    );
+    element.innerHTML = highlightedText;
+}
+
+// Clear all highlights
+function clearHighlights() {
+    const originalTextElement = document.getElementById('originalText');
+    const translatedTextElement = document.getElementById('translatedText');
+    
+    if (originalTextElement && currentLesson) {
+        originalTextElement.innerHTML = `<pre class="whitespace-pre-wrap">${currentLesson.content}</pre>`;
+    }
+    
+    if (translatedTextElement && translatedTextElement.textContent) {
+        const text = translatedTextElement.textContent;
+        translatedTextElement.innerHTML = `<pre class="whitespace-pre-wrap">${text}</pre>`;
     }
 }
 
