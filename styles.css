@@ -31,4 +31,16 @@
 .btn-gray:hover {
     background-color: #4b5563;
 }
+.btn-pink {
+    background-color: #ec4899;
+}
+.btn-pink:hover {
+    background-color: #db2777;
+}
+.btn-orange {
+    background-color: #f97316;
+}
+.btn-orange:hover {
+    background-color: #ea580c;
+}
 

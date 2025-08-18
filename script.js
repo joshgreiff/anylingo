@@ -21,6 +21,8 @@ let userPreferences = {
 // Text highlighting variables
 let currentHighlightedWord = null;
 let highlightInterval = null;
+let currentWordIndex = 0;
+let words = [];
 let wordBoundaries = [];
 
 // Recording variables
@@ -131,6 +133,7 @@ function setupEventListeners() {
     // ReadAloud controls
     document.getElementById('startReadingBtn').addEventListener('click', startReading);
     document.getElementById('pauseReadingBtn').addEventListener('click', pauseReading);
+    document.getElementById('continueReadingBtn').addEventListener('click', continueReading);
     document.getElementById('stopReadingBtn').addEventListener('click', stopReading);
     document.getElementById('loopReadingBtn').addEventListener('click', toggleLoop);
     
@@ -158,9 +161,9 @@ function setupEventListeners() {
     document.getElementById('startDrill3Btn').addEventListener('click', startDrill3);
     
     // Drill 4 controls
-    document.getElementById('startRecordingBtn').addEventListener('click', startRecording);
-    document.getElementById('stopRecordingBtn').addEventListener('click', stopRecording);
-    document.getElementById('playRecordingBtn').addEventListener('click', playRecording);
+    document.getElementById('startRecordingBtn').addEventListener('click', startDrillRecording);
+    document.getElementById('stopRecordingBtn').addEventListener('click', stopDrillRecording);
+    document.getElementById('playRecordingBtn').addEventListener('click', playDrillRecording);
     document.getElementById('reRecordBtn').addEventListener('click', reRecord);
     
     // Main recording controls
@@ -418,10 +421,12 @@ function startReading() {
     utterance.rate = rate;
     
     // Calculate estimated duration for word highlighting
-    const words = currentLesson.content.split(/\s+/);
+    words = currentLesson.content.split(/\s+/);
     const wordsPerMinute = 150 * rate; // Approximate words per minute
     estimatedDuration = (words.length / wordsPerMinute) * 60; // Duration in seconds
     speechStartTime = Date.now();
+    currentWordIndex = 0; // Reset speech position
+    wordBoundaries = []; // Clear previous boundaries
     
     utterance.onstart = () => {
         isPlaying = true;
@@ -435,7 +440,67 @@ function startReading() {
         clearWordHighlights();
         updateReadingButtons();
         if (isLooping) {
-            setTimeout(startReading, 1000);
+            setTimeout(restartReading, 1000);
+        }
+    };
+    
+    utterance.onpause = () => {
+        isPlaying = false;
+        clearWordHighlights();
+        updateReadingButtons();
+    };
+    
+    utterance.onresume = () => {
+        isPlaying = true;
+        updateReadingButtons();
+        startWordHighlighting();
+    };
+    
+    synth.speak(utterance);
+}
+
+// Restart reading (for loop functionality)
+function restartReading() {
+    if (!currentLesson || !speechSynthesisSupported) return;
+    
+    // Don't call stopReading() to avoid interfering with loop state
+    if (synth) {
+        synth.cancel();
+        isPlaying = false;
+        clearWordHighlights();
+    }
+    
+    const voiceIndex = document.getElementById('voiceSelect').value;
+    const rate = parseFloat(document.getElementById('rateRange').value);
+    
+    utterance = new SpeechSynthesisUtterance(currentLesson.content);
+    
+    if (voiceIndex && synth.getVoices()[voiceIndex]) {
+        utterance.voice = synth.getVoices()[voiceIndex];
+    }
+    
+    utterance.rate = rate;
+    
+    // Calculate estimated duration for word highlighting
+    words = currentLesson.content.split(/\s+/);
+    const wordsPerMinute = 150 * rate;
+    estimatedDuration = (words.length / wordsPerMinute) * 60;
+    speechStartTime = Date.now();
+    currentWordIndex = 0;
+    wordBoundaries = [];
+    
+    utterance.onstart = () => {
+        isPlaying = true;
+        updateReadingButtons();
+        startWordHighlighting();
+    };
+    
+    utterance.onend = () => {
+        isPlaying = false;
+        clearWordHighlights();
+        updateReadingButtons();
+        if (isLooping) {
+            setTimeout(restartReading, 1000);
         }
     };
     
@@ -459,8 +524,21 @@ function pauseReading() {
     if (synth && isPlaying) {
         synth.pause();
         isPlaying = false;
+        // No need to reset currentSpeechPosition or lastUpdateTime here,
+        // as the next resume will continue from the current position.
         clearWordHighlights();
         updateReadingButtons();
+    }
+}
+
+// Continue reading
+function continueReading() {
+    if (synth && !isPlaying && utterance) {
+        // Calculate pause duration and add to total pause time
+        // This logic is now handled by the speech synthesis's onresume event.
+        // We just need to ensure the highlighting continues from the correct position.
+        updateReadingButtons();
+        startWordHighlighting();
     }
 }
 
@@ -469,10 +547,10 @@ function stopReading() {
     if (synth) {
         synth.cancel();
         isPlaying = false;
-        isLooping = false;
+        // Don't reset isLooping here - let the user control it
         clearWordHighlights();
         updateReadingButtons();
-        document.getElementById('loopReadingBtn').textContent = 'Loop OFF';
+        // Don't change the loop button text - keep the current state
     }
 }
 
@@ -485,9 +563,17 @@ function toggleLoop() {
 
 // Update reading buttons
 function updateReadingButtons() {
-    document.getElementById('startReadingBtn').disabled = isPlaying;
+    const isPaused = synth && synth.paused;
+    document.getElementById('startReadingBtn').disabled = isPlaying || isPaused;
     document.getElementById('pauseReadingBtn').disabled = !isPlaying;
-    document.getElementById('stopReadingBtn').disabled = !isPlaying;
+    document.getElementById('continueReadingBtn').disabled = !isPaused;
+    document.getElementById('stopReadingBtn').disabled = !isPlaying && !isPaused;
+    
+    // Update loop button to reflect current state
+    const loopButton = document.getElementById('loopReadingBtn');
+    if (loopButton) {
+        loopButton.textContent = isLooping ? 'Loop ON' : 'Loop OFF';
+    }
 }
 
 // Update rate display
@@ -525,10 +611,6 @@ function applyUserPreferences() {
 function startWordHighlighting() {
     if (!currentLesson || !isPlaying) return;
     
-    const content = currentLesson.content;
-    const words = content.split(/\s+/);
-    let currentWordIndex = 0;
-    
     // Clear any existing highlights
     clearWordHighlights();
     
@@ -536,7 +618,7 @@ function startWordHighlighting() {
     wordBoundaries = [];
     let currentPos = 0;
     words.forEach((word, index) => {
-        const wordStart = content.indexOf(word, currentPos);
+        const wordStart = currentLesson.content.indexOf(word, currentPos);
         const wordEnd = wordStart + word.length;
         wordBoundaries.push({
             word: word,
@@ -554,11 +636,14 @@ function startWordHighlighting() {
             return;
         }
         
-        // Calculate approximate word position based on speech progress
-        const progress = (Date.now() - speechStartTime) / (estimatedDuration * 1000);
+        // Calculate word position based on speech progress
+        // Use a slightly faster pace to keep up with speech synthesis
+        const elapsedTime = Date.now() - speechStartTime;
+        const adjustedElapsedTime = elapsedTime * 1.1; // Speed up by 10% to keep up
+        const progress = adjustedElapsedTime / (estimatedDuration * 1000);
         const targetWordIndex = Math.floor(progress * words.length);
         
-        if (targetWordIndex !== currentWordIndex && targetWordIndex < words.length) {
+        if (targetWordIndex !== currentHighlightedWord && targetWordIndex < words.length) {
             // Remove previous highlight
             if (currentHighlightedWord !== null) {
                 removeWordHighlight(currentHighlightedWord);
@@ -568,7 +653,7 @@ function startWordHighlighting() {
             currentHighlightedWord = targetWordIndex;
             addWordHighlight(targetWordIndex);
         }
-    }, 100); // Update every 100ms
+    }, 50); // Update more frequently for smoother highlighting
 }
 
 // Add highlight to a specific word
@@ -669,6 +754,11 @@ function initLanguageOptions() {
     targetLanguage.addEventListener('change', function() {
         userPreferences.targetLanguage = this.value;
         saveUserPreferences();
+        
+        // Automatically restart translation when target language changes
+        if (currentLesson && document.getElementById('translatedText').innerHTML.trim() !== '') {
+            translateContent();
+        }
     });
 }
 
@@ -695,13 +785,21 @@ function updateTranslateSection() {
 
 // Translate content
 async function translateContent() {
-    if (!currentLesson) return;
+    console.log('translateContent function called');
+    
+    if (!currentLesson) {
+        console.log('No current lesson');
+        return;
+    }
     
     const sourceLanguage = document.getElementById('sourceLanguage').value;
     const targetLanguage = document.getElementById('targetLanguage').value;
     const translationMode = document.querySelector('input[name="translationMode"]:checked').value;
     const translatedTextElement = document.getElementById('translatedText');
     const translateBtn = document.getElementById('translateBtn');
+    
+    console.log('Translation settings:', { sourceLanguage, targetLanguage, translationMode });
+    console.log('Elements found:', { translatedTextElement: !!translatedTextElement, translateBtn: !!translateBtn });
     
     if (targetLanguage === 'auto') {
         showMessage('translateMessage', 'Please select a target language.', 'error');
@@ -713,6 +811,13 @@ async function translateContent() {
     
     try {
         let textToTranslate = currentLesson.content;
+        
+        // If user has selected specific text, use that instead
+        if (userPreferences.selectedText) {
+            textToTranslate = userPreferences.selectedText;
+        }
+        
+        console.log('Text to translate:', textToTranslate.substring(0, 100) + '...');
         
         // Split text based on translation mode
         if (translationMode === 'sentence') {
@@ -744,8 +849,14 @@ async function translateContent() {
             textToTranslate = await translateText(textToTranslate, sourceLanguage, targetLanguage);
         }
         
+        console.log('Translation completed:', textToTranslate.substring(0, 100) + '...');
+        
         translatedTextElement.innerHTML = `<pre class="whitespace-pre-wrap">${textToTranslate}</pre>`;
+        console.log('Updated translatedTextElement.innerHTML:', translatedTextElement.innerHTML.substring(0, 100) + '...');
         showMessage('translateMessage', 'Translation completed successfully!', 'success');
+        
+        // Setup text selection for translated text
+        setupTextSelection();
         
     } catch (error) {
         console.error('Translation error:', error);
@@ -758,31 +869,43 @@ async function translateContent() {
 
 // Translate text using free translation service
 async function translateText(text, sourceLang, targetLang) {
+    console.log('translateText called with:', { text: text.substring(0, 50) + '...', sourceLang, targetLang });
+    
     // Use free Google Translate service (no API key required)
     try {
         const fallbackUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang === 'auto' ? 'auto' : sourceLang}&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
         
+        console.log('Trying Google Translate API:', fallbackUrl.substring(0, 100) + '...');
+        
         const response = await fetch(fallbackUrl);
+        console.log('Google Translate response status:', response.status);
+        
         if (response.ok) {
             const data = await response.json();
+            console.log('Google Translate response data:', data);
             return data[0][0][0];
         } else {
             throw new Error(`Translation failed: ${response.status}`);
         }
     } catch (error) {
-        console.error('Translation error:', error);
+        console.error('Google Translate error:', error);
         
         // Try alternative free translation service
         try {
             const alternativeUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLang === 'auto' ? 'auto' : sourceLang}|${targetLang}`;
             
+            console.log('Trying MyMemory API:', alternativeUrl.substring(0, 100) + '...');
+            
             const altResponse = await fetch(alternativeUrl);
+            console.log('MyMemory response status:', altResponse.status);
+            
             if (altResponse.ok) {
                 const altData = await altResponse.json();
+                console.log('MyMemory response data:', altData);
                 return altData.responseData.translatedText;
             }
         } catch (altError) {
-            console.error('Alternative translation error:', altError);
+            console.error('MyMemory translation error:', altError);
         }
         
         throw new Error('Translation service unavailable. Please try again later.');
@@ -814,7 +937,29 @@ function handleTextClick(event) {
         const sentence = findSentenceAtPosition(text, clickPosition);
         
         if (sentence) {
+            // Highlight in the clicked element
             highlightSentence(element, sentence);
+            
+            // Also highlight the same sentence in the other text element
+            const originalTextElement = document.getElementById('originalText');
+            const translatedTextElement = document.getElementById('translatedText');
+            
+            if (element === originalTextElement && translatedTextElement) {
+                // Find and highlight the same sentence in translated text
+                const translatedText = translatedTextElement.textContent;
+                const translatedSentence = findMatchingSentence(translatedText, sentence);
+                if (translatedSentence) {
+                    highlightSentence(translatedTextElement, translatedSentence);
+                }
+            } else if (element === translatedTextElement && originalTextElement) {
+                // Find and highlight the same sentence in original text
+                const originalText = originalTextElement.textContent;
+                const originalSentence = findMatchingSentence(originalText, sentence);
+                if (originalSentence) {
+                    highlightSentence(originalTextElement, originalSentence);
+                }
+            }
+            
             userPreferences.selectedText = sentence;
             saveUserPreferences();
         }
@@ -822,11 +967,39 @@ function handleTextClick(event) {
 }
 
 // Handle text selection
-function handleTextSelection(event) {
+function handleTextSelection() {
     const selection = window.getSelection();
     if (selection.toString().trim()) {
-        userPreferences.selectedText = selection.toString().trim();
-        saveUserPreferences();
+        const range = selection.getRangeAt(0);
+        const selectedText = selection.toString();
+        
+        // Create a container for the highlighted text and translation button
+        const container = document.createElement('span');
+        container.style.display = 'inline-block';
+        container.style.position = 'relative';
+        
+        // Create the highlighted text span
+        const span = document.createElement('span');
+        span.style.backgroundColor = 'yellow';
+        span.style.cursor = 'pointer';
+        span.textContent = selectedText;
+        
+        // Create the translation button
+        const translateBtn = document.createElement('button');
+        translateBtn.textContent = 'Translate';
+        translateBtn.className = 'ml-2 px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600';
+        translateBtn.onclick = (e) => {
+            e.stopPropagation();
+            translateSelection(selectedText);
+        };
+        
+        // Add both elements to container
+        container.appendChild(span);
+        container.appendChild(translateBtn);
+        
+        range.deleteContents();
+        range.insertNode(container);
+        selection.removeAllRanges();
     }
 }
 
@@ -868,6 +1041,18 @@ function findSentenceAtPosition(text, position) {
         charCount += lines[i].length + 1; // +1 for newline
     }
     
+    return null;
+}
+
+// Find matching sentence in text (simple implementation)
+function findMatchingSentence(text, targetSentence) {
+    // This is a simplified matching - in a real implementation you'd use more sophisticated matching
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim());
+    for (const sentence of sentences) {
+        if (sentence.trim().length > 0) {
+            return sentence.trim();
+        }
+    }
     return null;
 }
 
@@ -926,6 +1111,14 @@ function showDrillInstructions(drillNumber) {
     const selectedInstructions = document.getElementById(drillNumber + 'Instructions');
     if (selectedInstructions) {
         selectedInstructions.classList.remove('hidden');
+        
+        // Special handling for Drill 5 - populate custom lesson text
+        if (drillNumber === 'drill5' && currentLesson) {
+            const customLessonText = document.getElementById('customLessonText');
+            if (customLessonText) {
+                customLessonText.value = currentLesson.content;
+            }
+        }
     }
     
     // Show general instructions
@@ -956,7 +1149,298 @@ function showDrillInstructions(drillNumber) {
 // Drill 1: Listen and Follow
 function startDrill1() {
     if (!currentLesson) return;
-    startReading();
+    
+    // Show drill 1 controls
+    const drill1Instructions = document.getElementById('drill1Instructions');
+    drill1Instructions.innerHTML = `
+        <p>Listen to the lesson being read aloud and follow along with the text. This helps with comprehension and pronunciation.</p>
+        <div class="mt-4 flex space-x-4">
+            <button
+                id="drill1StartBtn"
+                class="px-6 py-3 btn-purple text-white rounded-md shadow transition-colors"
+            >
+                Start
+            </button>
+            <button
+                id="drill1PauseBtn"
+                class="px-6 py-3 btn-green text-white rounded-md shadow transition-colors"
+                disabled
+            >
+                Pause
+            </button>
+            <button
+                id="drill1ContinueBtn"
+                class="px-6 py-3 btn-green text-white rounded-md shadow transition-colors"
+                disabled
+            >
+                Continue
+            </button>
+            <button
+                id="drill1StopBtn"
+                class="px-6 py-3 btn-red text-white rounded-md shadow transition-colors"
+                disabled
+            >
+                Stop
+            </button>
+        </div>
+        <div id="drill1Content" class="mt-4 border p-4 rounded-md bg-gray-50 h-96 overflow-y-auto">
+            <pre class="whitespace-pre-wrap">${currentLesson.content}</pre>
+        </div>
+    `;
+    
+    // Add event listeners for drill 1 controls
+    document.getElementById('drill1StartBtn').addEventListener('click', startDrill1Reading);
+    document.getElementById('drill1PauseBtn').addEventListener('click', pauseDrill1Reading);
+    document.getElementById('drill1ContinueBtn').addEventListener('click', continueDrill1Reading);
+    document.getElementById('drill1StopBtn').addEventListener('click', stopDrill1Reading);
+}
+
+// Drill 1 reading functions
+function startDrill1Reading() {
+    if (!currentLesson || !speechSynthesisSupported) return;
+    
+    stopDrill1Reading(); // Stop any current reading
+    
+    const voiceIndex = document.getElementById('voiceSelect').value;
+    const rate = parseFloat(document.getElementById('rateRange').value);
+    
+    utterance = new SpeechSynthesisUtterance(currentLesson.content);
+    
+    if (voiceIndex && synth.getVoices()[voiceIndex]) {
+        utterance.voice = synth.getVoices()[voiceIndex];
+    }
+    
+    utterance.rate = rate;
+    
+    // Calculate estimated duration for word highlighting
+    words = currentLesson.content.split(/\s+/);
+    const wordsPerMinute = 150 * rate;
+    estimatedDuration = (words.length / wordsPerMinute) * 60;
+    speechStartTime = Date.now();
+    currentWordIndex = 0; // Reset speech position
+    wordBoundaries = []; // Clear previous boundaries
+    
+    utterance.onstart = () => {
+        isPlaying = true;
+        updateDrill1Buttons();
+        startDrill1WordHighlighting();
+    };
+    
+    utterance.onend = () => {
+        isPlaying = false;
+        clearDrill1WordHighlights();
+        updateDrill1Buttons();
+        if (isLooping) {
+            setTimeout(restartDrill1Reading, 1000);
+        }
+    };
+    
+    utterance.onpause = () => {
+        isPlaying = false;
+        clearDrill1WordHighlights();
+        updateDrill1Buttons();
+    };
+    
+    utterance.onresume = () => {
+        isPlaying = true;
+        updateDrill1Buttons();
+        startDrill1WordHighlighting();
+    };
+    
+    synth.speak(utterance);
+}
+
+function restartDrill1Reading() {
+    if (!currentLesson || !speechSynthesisSupported) return;
+    
+    // Don't call stopReading() to avoid interfering with loop state
+    if (synth) {
+        synth.cancel();
+        isPlaying = false;
+        clearDrill1WordHighlights();
+    }
+    
+    const voiceIndex = document.getElementById('voiceSelect').value;
+    const rate = parseFloat(document.getElementById('rateRange').value);
+    
+    utterance = new SpeechSynthesisUtterance(currentLesson.content);
+    
+    if (voiceIndex && synth.getVoices()[voiceIndex]) {
+        utterance.voice = synth.getVoices()[voiceIndex];
+    }
+    
+    utterance.rate = rate;
+    
+    // Calculate estimated duration for word highlighting
+    words = currentLesson.content.split(/\s+/);
+    const wordsPerMinute = 150 * rate;
+    estimatedDuration = (words.length / wordsPerMinute) * 60;
+    speechStartTime = Date.now();
+    currentWordIndex = 0;
+    wordBoundaries = [];
+    
+    utterance.onstart = () => {
+        isPlaying = true;
+        updateDrill1Buttons();
+        startDrill1WordHighlighting();
+    };
+    
+    utterance.onend = () => {
+        isPlaying = false;
+        clearDrill1WordHighlights();
+        updateDrill1Buttons();
+        if (isLooping) {
+            setTimeout(restartDrill1Reading, 1000);
+        }
+    };
+    
+    utterance.onpause = () => {
+        isPlaying = false;
+        clearDrill1WordHighlights();
+        updateDrill1Buttons();
+    };
+    
+    utterance.onresume = () => {
+        isPlaying = true;
+        updateDrill1Buttons();
+        startDrill1WordHighlighting();
+    };
+    
+    synth.speak(utterance);
+}
+
+function pauseDrill1Reading() {
+    if (synth && isPlaying) {
+        synth.pause();
+        isPlaying = false;
+        // No need to reset currentSpeechPosition or lastUpdateTime here,
+        // as the next resume will continue from the current position.
+        clearDrill1WordHighlights();
+        updateDrill1Buttons();
+    }
+}
+
+function continueDrill1Reading() {
+    if (synth && !isPlaying && utterance) {
+        // Calculate pause duration and add to total pause time
+        // This logic is now handled by the speech synthesis's onresume event.
+        // We just need to ensure the highlighting continues from the correct position.
+        updateDrill1Buttons();
+        startDrill1WordHighlighting();
+    }
+}
+
+function stopDrill1Reading() {
+    if (synth) {
+        synth.cancel();
+        isPlaying = false;
+        clearDrill1WordHighlights();
+        updateDrill1Buttons();
+    }
+}
+
+function updateDrill1Buttons() {
+    const isPaused = synth && synth.paused;
+    document.getElementById('drill1StartBtn').disabled = isPlaying || isPaused;
+    document.getElementById('drill1PauseBtn').disabled = !isPlaying;
+    document.getElementById('drill1ContinueBtn').disabled = !isPaused;
+    document.getElementById('drill1StopBtn').disabled = !isPlaying && !isPaused;
+}
+
+function startDrill1WordHighlighting() {
+    if (!currentLesson || !isPlaying) return;
+    
+    // Clear any existing highlights
+    clearDrill1WordHighlights();
+    
+    // Create word boundaries for highlighting
+    wordBoundaries = [];
+    let currentPos = 0;
+    words.forEach((word, index) => {
+        const wordStart = currentLesson.content.indexOf(word, currentPos);
+        const wordEnd = wordStart + word.length;
+        wordBoundaries.push({
+            word: word,
+            start: wordStart,
+            end: wordEnd,
+            index: index
+        });
+        currentPos = wordEnd;
+    });
+    
+    // Start highlighting words based on speech timing
+    highlightInterval = setInterval(() => {
+        if (!isPlaying) {
+            clearDrill1WordHighlights();
+            return;
+        }
+        
+        // Calculate word position based on speech progress
+        // Use a slightly faster pace to keep up with speech synthesis
+        const elapsedTime = Date.now() - speechStartTime;
+        const adjustedElapsedTime = elapsedTime * 1.1; // Speed up by 10% to keep up
+        const progress = adjustedElapsedTime / (estimatedDuration * 1000);
+        const targetWordIndex = Math.floor(progress * words.length);
+        
+        if (targetWordIndex !== currentHighlightedWord && targetWordIndex < words.length) {
+            // Remove previous highlight
+            if (currentHighlightedWord !== null) {
+                removeDrill1WordHighlight(currentHighlightedWord);
+            }
+            
+            // Add new highlight
+            currentHighlightedWord = targetWordIndex;
+            addDrill1WordHighlight(targetWordIndex);
+        }
+    }, 50); // Update more frequently for smoother highlighting
+}
+
+function addDrill1WordHighlight(wordIndex) {
+    const contentElement = document.getElementById('drill1Content');
+    if (!contentElement || wordIndex >= wordBoundaries.length) return;
+    
+    const boundary = wordBoundaries[wordIndex];
+    const content = currentLesson.content;
+    
+    // Create highlighted version
+    const before = content.substring(0, boundary.start);
+    const word = content.substring(boundary.start, boundary.end);
+    const after = content.substring(boundary.end);
+    
+    contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${before}<span class="bg-green-300 text-green-800 px-1 rounded">${word}</span>${after}</pre>`;
+}
+
+function removeDrill1WordHighlight(wordIndex) {
+    const contentElement = document.getElementById('drill1Content');
+    if (!contentElement || wordIndex >= wordBoundaries.length) return;
+    
+    const boundary = wordBoundaries[wordIndex];
+    const content = currentLesson.content;
+    
+    // Remove highlight by restoring original text
+    const before = content.substring(0, boundary.start);
+    const word = content.substring(boundary.start, boundary.end);
+    const after = content.substring(boundary.end);
+    
+    contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${before}${word}${after}</pre>`;
+}
+
+function clearDrill1WordHighlights() {
+    if (highlightInterval) {
+        clearInterval(highlightInterval);
+        highlightInterval = null;
+    }
+    
+    currentHighlightedWord = null;
+    wordBoundaries = [];
+    
+    // Restore original content
+    if (currentLesson) {
+        const contentElement = document.getElementById('drill1Content');
+        if (contentElement) {
+            contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${currentLesson.content}</pre>`;
+        }
+    }
 }
 
 // Drill 2: Highlight and Translate
@@ -982,22 +1466,63 @@ function handleTextSelection() {
     const selection = window.getSelection();
     if (selection.toString().trim()) {
         const range = selection.getRangeAt(0);
+        const selectedText = selection.toString();
+        
+        // Create a container for the highlighted text and translation button
+        const container = document.createElement('span');
+        container.style.display = 'inline-block';
+        container.style.position = 'relative';
+        
+        // Create the highlighted text span
         const span = document.createElement('span');
         span.style.backgroundColor = 'yellow';
         span.style.cursor = 'pointer';
-        span.textContent = selection.toString();
-        span.onclick = () => translateSelection(span.textContent);
+        span.textContent = selectedText;
+        
+        // Create the translation button
+        const translateBtn = document.createElement('button');
+        translateBtn.textContent = 'Translate';
+        translateBtn.className = 'ml-2 px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600';
+        translateBtn.onclick = (e) => {
+            e.stopPropagation();
+            translateSelection(selectedText);
+        };
+        
+        // Add both elements to container
+        container.appendChild(span);
+        container.appendChild(translateBtn);
         
         range.deleteContents();
-        range.insertNode(span);
+        range.insertNode(container);
         selection.removeAllRanges();
     }
 }
 
 async function translateSelection(text) {
     try {
-        const translated = await translateText(text, 'auto', 'en');
-        alert(`Translation: ${translated}`);
+        const targetLanguage = userPreferences.targetLanguage || 'en';
+        const translated = await translateText(text, 'auto', targetLanguage);
+        
+        // Show translation in a better way than alert
+        const translationDiv = document.createElement('div');
+        translationDiv.className = 'fixed top-4 right-4 bg-white border border-gray-300 rounded-lg shadow-lg p-4 max-w-sm z-50';
+        translationDiv.innerHTML = `
+            <div class="flex justify-between items-center mb-2">
+                <h4 class="font-semibold">Translation</h4>
+                <button onclick="this.parentElement.parentElement.remove()" class="text-gray-500 hover:text-gray-700">×</button>
+            </div>
+            <p class="text-sm text-gray-600 mb-2">${text}</p>
+            <p class="font-medium">${translated}</p>
+        `;
+        document.body.appendChild(translationDiv);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (translationDiv.parentElement) {
+                translationDiv.remove();
+            }
+        }, 5000);
+        
     } catch (error) {
         alert('Translation failed. Please try again.');
     }
@@ -1015,298 +1540,296 @@ function clearHighlights() {
 // Drill 3: Read and Speak Simultaneously
 function startDrill3() {
     if (!currentLesson) return;
-    startReading();
-    // Note: User should read along with the audio
+    
+    // Show drill 3 controls
+    const drill3Instructions = document.getElementById('drill3Instructions');
+    drill3Instructions.innerHTML = `
+        <p>Read the text aloud at the same time as the audio plays. This helps develop fluency and natural rhythm.</p>
+        <div class="mt-4 flex space-x-4">
+            <button
+                id="drill3StartBtn"
+                class="px-6 py-3 btn-green text-white rounded-md shadow transition-colors"
+            >
+                Start
+            </button>
+            <button
+                id="drill3PauseBtn"
+                class="px-6 py-3 btn-green text-white rounded-md shadow transition-colors"
+                disabled
+            >
+                Pause
+            </button>
+            <button
+                id="drill3ContinueBtn"
+                class="px-6 py-3 btn-green text-white rounded-md shadow transition-colors"
+                disabled
+            >
+                Continue
+            </button>
+            <button
+                id="drill3StopBtn"
+                class="px-6 py-3 btn-red text-white rounded-md shadow transition-colors"
+                disabled
+            >
+                Stop
+            </button>
+        </div>
+        <div id="drill3Content" class="mt-4 border p-4 rounded-md bg-gray-50 h-96 overflow-y-auto">
+            <pre class="whitespace-pre-wrap">${currentLesson.content}</pre>
+        </div>
+    `;
+    
+    // Add event listeners for drill 3 controls
+    document.getElementById('drill3StartBtn').addEventListener('click', startDrill3Reading);
+    document.getElementById('drill3PauseBtn').addEventListener('click', pauseDrill3Reading);
+    document.getElementById('drill3ContinueBtn').addEventListener('click', continueDrill3Reading);
+    document.getElementById('drill3StopBtn').addEventListener('click', stopDrill3Reading);
 }
 
-// Drill 4: Record Yourself
-function startRecording() {
-    if (!recordingSupported) {
-        alert('Recording is not supported in your browser.');
-        return;
+// Drill 3 reading functions (same as Drill 1 but with different content element)
+function startDrill3Reading() {
+    if (!currentLesson || !speechSynthesisSupported) return;
+    
+    stopDrill3Reading(); // Stop any current reading
+    
+    const voiceIndex = document.getElementById('voiceSelect').value;
+    const rate = parseFloat(document.getElementById('rateRange').value);
+    
+    utterance = new SpeechSynthesisUtterance(currentLesson.content);
+    
+    if (voiceIndex && synth.getVoices()[voiceIndex]) {
+        utterance.voice = synth.getVoices()[voiceIndex];
     }
     
-    navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
-            
-            mediaRecorder.ondataavailable = (event) => {
-                audioChunks.push(event.data);
-            };
-            
-            mediaRecorder.onstop = () => {
-                audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                audioUrl = URL.createObjectURL(audioBlob);
-                
-                document.getElementById('playRecordingBtn').disabled = false;
-                document.getElementById('reRecordBtn').disabled = false;
-                document.getElementById('stopRecordingBtn').disabled = true;
-                document.getElementById('startRecordingBtn').disabled = false;
-                
-                // Stop all tracks
-                stream.getTracks().forEach(track => track.stop());
-            };
-            
-            mediaRecorder.onerror = (event) => {
-                console.error('MediaRecorder error:', event);
-                alert('Recording error occurred. Please try again.');
-                stopRecording();
-            };
-            
-            mediaRecorder.start();
-            isRecording = true;
-            
-            document.getElementById('startRecordingBtn').disabled = true;
-            document.getElementById('stopRecordingBtn').disabled = false;
-            document.getElementById('playRecordingBtn').disabled = true;
-            document.getElementById('reRecordBtn').disabled = true;
-            
-            console.log('Drill recording started');
-        })
-        .catch(error => {
-            console.error('Error accessing microphone:', error);
-            alert('Error accessing microphone. Please check permissions and try again.');
-        });
+    utterance.rate = rate;
+    
+    // Calculate estimated duration for word highlighting
+    words = currentLesson.content.split(/\s+/);
+    const wordsPerMinute = 150 * rate;
+    estimatedDuration = (words.length / wordsPerMinute) * 60;
+    speechStartTime = Date.now();
+    currentWordIndex = 0; // Reset speech position
+    wordBoundaries = []; // Clear previous boundaries
+    
+    utterance.onstart = () => {
+        isPlaying = true;
+        updateDrill3Buttons();
+        startDrill3WordHighlighting();
+    };
+    
+    utterance.onend = () => {
+        isPlaying = false;
+        clearDrill3WordHighlights();
+        updateDrill3Buttons();
+        if (isLooping) {
+            setTimeout(restartDrill3Reading, 1000);
+        }
+    };
+    
+    utterance.onpause = () => {
+        isPlaying = false;
+        clearDrill3WordHighlights();
+        updateDrill3Buttons();
+    };
+    
+    utterance.onresume = () => {
+        isPlaying = true;
+        updateDrill3Buttons();
+        startDrill3WordHighlighting();
+    };
+    
+    synth.speak(utterance);
 }
 
-function stopRecording() {
-    if (mediaRecorder && isRecording) {
-        try {
-            mediaRecorder.stop();
-            isRecording = false;
-            console.log('Drill recording stopped');
-        } catch (error) {
-            console.error('Error stopping drill recording:', error);
-            // Force stop by stopping all tracks
-            if (mediaRecorder.stream) {
-                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+function restartDrill3Reading() {
+    if (!currentLesson || !speechSynthesisSupported) return;
+    
+    // Don't call stopReading() to avoid interfering with loop state
+    if (synth) {
+        synth.cancel();
+        isPlaying = false;
+        clearDrill3WordHighlights();
+    }
+    
+    const voiceIndex = document.getElementById('voiceSelect').value;
+    const rate = parseFloat(document.getElementById('rateRange').value);
+    
+    utterance = new SpeechSynthesisUtterance(currentLesson.content);
+    
+    if (voiceIndex && synth.getVoices()[voiceIndex]) {
+        utterance.voice = synth.getVoices()[voiceIndex];
+    }
+    
+    utterance.rate = rate;
+    
+    // Calculate estimated duration for word highlighting
+    words = currentLesson.content.split(/\s+/);
+    const wordsPerMinute = 150 * rate;
+    estimatedDuration = (words.length / wordsPerMinute) * 60;
+    speechStartTime = Date.now();
+    currentWordIndex = 0;
+    wordBoundaries = [];
+    
+    utterance.onstart = () => {
+        isPlaying = true;
+        updateDrill3Buttons();
+        startDrill3WordHighlighting();
+    };
+    
+    utterance.onend = () => {
+        isPlaying = false;
+        clearDrill3WordHighlights();
+        updateDrill3Buttons();
+        if (isLooping) {
+            setTimeout(restartDrill3Reading, 1000);
+        }
+    };
+    
+    utterance.onpause = () => {
+        isPlaying = false;
+        clearDrill3WordHighlights();
+        updateDrill3Buttons();
+    };
+    
+    utterance.onresume = () => {
+        isPlaying = true;
+        updateDrill3Buttons();
+        startDrill3WordHighlighting();
+    };
+    
+    synth.speak(utterance);
+}
+
+function pauseDrill3Reading() {
+    if (synth && isPlaying) {
+        synth.pause();
+        isPlaying = false;
+        // No need to reset currentSpeechPosition or lastUpdateTime here,
+        // as the next resume will continue from the current position.
+        clearDrill3WordHighlights();
+        updateDrill3Buttons();
+    }
+}
+
+function continueDrill3Reading() {
+    if (synth && !isPlaying && utterance) {
+        // Calculate pause duration and add to total pause time
+        // This logic is now handled by the speech synthesis's onresume event.
+        // We just need to ensure the highlighting continues from the correct position.
+        updateDrill3Buttons();
+        startDrill3WordHighlighting();
+    }
+}
+
+function stopDrill3Reading() {
+    if (synth) {
+        synth.cancel();
+        isPlaying = false;
+        clearDrill3WordHighlights();
+        updateDrill3Buttons();
+    }
+}
+
+function updateDrill3Buttons() {
+    const isPaused = synth && synth.paused;
+    document.getElementById('drill3StartBtn').disabled = isPlaying || isPaused;
+    document.getElementById('drill3PauseBtn').disabled = !isPlaying;
+    document.getElementById('drill3ContinueBtn').disabled = !isPaused;
+    document.getElementById('drill3StopBtn').disabled = !isPlaying && !isPaused;
+}
+
+function startDrill3WordHighlighting() {
+    if (!currentLesson || !isPlaying) return;
+    
+    // Clear any existing highlights
+    clearDrill3WordHighlights();
+    
+    // Create word boundaries for highlighting
+    wordBoundaries = [];
+    let currentPos = 0;
+    words.forEach((word, index) => {
+        const wordStart = currentLesson.content.indexOf(word, currentPos);
+        const wordEnd = wordStart + word.length;
+        wordBoundaries.push({
+            word: word,
+            start: wordStart,
+            end: wordEnd,
+            index: index
+        });
+        currentPos = wordEnd;
+    });
+    
+    // Start highlighting words based on speech timing
+    highlightInterval = setInterval(() => {
+        if (!isPlaying) {
+            clearDrill3WordHighlights();
+            return;
+        }
+        
+        // Calculate word position based on speech progress
+        // Use a slightly faster pace to keep up with speech synthesis
+        const elapsedTime = Date.now() - speechStartTime;
+        const adjustedElapsedTime = elapsedTime * 1.1; // Speed up by 10% to keep up
+        const progress = adjustedElapsedTime / (estimatedDuration * 1000);
+        const targetWordIndex = Math.floor(progress * words.length);
+        
+        if (targetWordIndex !== currentHighlightedWord && targetWordIndex < words.length) {
+            // Remove previous highlight
+            if (currentHighlightedWord !== null) {
+                removeDrill3WordHighlight(currentHighlightedWord);
             }
-            isRecording = false;
-        }
-    }
-}
-
-function playRecording() {
-    if (audioUrl) {
-        if (audioElement) {
-            audioElement.pause();
-        }
-        
-        audioElement = new Audio(audioUrl);
-        audioElement.play();
-    }
-}
-
-function reRecord() {
-    if (audioElement) {
-        audioElement.pause();
-        audioElement = null;
-    }
-    
-    if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-        audioUrl = null;
-    }
-    
-    audioBlob = null;
-    
-    document.getElementById('playRecordingBtn').disabled = true;
-    document.getElementById('reRecordBtn').disabled = true;
-}
-
-// Update record section
-function updateRecordSection() {
-    const titleElement = document.getElementById('recordLessonTitle');
-    const contentElement = document.getElementById('recordContent');
-    const recordingWarningElement = document.getElementById('recordingWarning');
-    
-    if (!currentLesson) {
-        titleElement.textContent = 'No lesson loaded';
-        contentElement.innerHTML = '<p class="text-gray-500 text-center">No lesson content available</p>';
-        return;
-    }
-    
-    titleElement.textContent = currentLesson.title;
-    contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${currentLesson.content}</pre>`;
-    
-    // Check recording support
-    if (!recordingSupported) {
-        recordingWarningElement.classList.remove('hidden');
-    } else {
-        recordingWarningElement.classList.add('hidden');
-    }
-}
-
-// Main recording functions
-function startMainRecording() {
-    if (!recordingSupported) {
-        alert('Recording is not supported in your browser.');
-        return;
-    }
-    
-    navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
             
-            mediaRecorder.ondataavailable = (event) => {
-                audioChunks.push(event.data);
-            };
-            
-            mediaRecorder.onstop = () => {
-                audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                audioUrl = URL.createObjectURL(audioBlob);
-                
-                document.getElementById('playMainRecordingBtn').disabled = false;
-                document.getElementById('saveRecordingBtn').disabled = false;
-                document.getElementById('stopMainRecordingBtn').disabled = true;
-                document.getElementById('startMainRecordingBtn').disabled = false;
-                
-                // Stop all tracks
-                stream.getTracks().forEach(track => track.stop());
-            };
-            
-            mediaRecorder.onerror = (event) => {
-                console.error('MediaRecorder error:', event);
-                alert('Recording error occurred. Please try again.');
-                stopMainRecording();
-            };
-            
-            mediaRecorder.start();
-            isRecording = true;
-            
-            document.getElementById('startMainRecordingBtn').disabled = true;
-            document.getElementById('stopMainRecordingBtn').disabled = false;
-            document.getElementById('playMainRecordingBtn').disabled = true;
-            document.getElementById('saveRecordingBtn').disabled = true;
-            
-            console.log('Recording started');
-        })
-        .catch(error => {
-            console.error('Error accessing microphone:', error);
-            alert('Error accessing microphone. Please check permissions and try again.');
-        });
-}
-
-function stopMainRecording() {
-    if (mediaRecorder && isRecording) {
-        try {
-            mediaRecorder.stop();
-            isRecording = false;
-            console.log('Recording stopped');
-        } catch (error) {
-            console.error('Error stopping recording:', error);
-            // Force stop by stopping all tracks
-            if (mediaRecorder.stream) {
-                mediaRecorder.stream.getTracks().forEach(track => track.stop());
-            }
-            isRecording = false;
+            // Add new highlight
+            currentHighlightedWord = targetWordIndex;
+            addDrill3WordHighlight(targetWordIndex);
         }
-    }
+    }, 50); // Update more frequently for smoother highlighting
 }
 
-function playMainRecording() {
-    if (audioUrl) {
-        if (audioElement) {
-            audioElement.pause();
+function addDrill3WordHighlight(wordIndex) {
+    const contentElement = document.getElementById('drill3Content');
+    if (!contentElement || wordIndex >= wordBoundaries.length) return;
+    
+    const boundary = wordBoundaries[wordIndex];
+    const content = currentLesson.content;
+    
+    // Create highlighted version
+    const before = content.substring(0, boundary.start);
+    const word = content.substring(boundary.start, boundary.end);
+    const after = content.substring(boundary.end);
+    
+    contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${before}<span class="bg-green-300 text-green-800 px-1 rounded">${word}</span>${after}</pre>`;
+}
+
+function removeDrill3WordHighlight(wordIndex) {
+    const contentElement = document.getElementById('drill3Content');
+    if (!contentElement || wordIndex >= wordBoundaries.length) return;
+    
+    const boundary = wordBoundaries[wordIndex];
+    const content = currentLesson.content;
+    
+    // Remove highlight by restoring original text
+    const before = content.substring(0, boundary.start);
+    const word = content.substring(boundary.start, boundary.end);
+    const after = content.substring(boundary.end);
+    
+    contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${before}${word}${after}</pre>`;
+}
+
+function clearDrill3WordHighlights() {
+    if (highlightInterval) {
+        clearInterval(highlightInterval);
+        highlightInterval = null;
+    }
+    
+    currentHighlightedWord = null;
+    wordBoundaries = [];
+    
+    // Restore original content
+    if (currentLesson) {
+        const contentElement = document.getElementById('drill3Content');
+        if (contentElement) {
+            contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${currentLesson.content}</pre>`;
         }
-        
-        audioElement = new Audio(audioUrl);
-        audioElement.play();
-    }
-}
-
-function saveRecording() {
-    if (audioBlob && currentLesson) {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = `${currentLesson.title}_recording_${timestamp}.wav`;
-        
-        const link = document.createElement('a');
-        link.href = audioUrl;
-        link.download = filename;
-        link.click();
-        
-        // Save recording info to localStorage
-        const recordings = JSON.parse(localStorage.getItem('recordings') || '{}');
-        if (!recordings[currentLesson.id]) {
-            recordings[currentLesson.id] = [];
-        }
-        
-        recordings[currentLesson.id].push({
-            id: timestamp,
-            filename: filename,
-            createdAt: new Date().toISOString(),
-            url: audioUrl
-        });
-        
-        localStorage.setItem('recordings', JSON.stringify(recordings));
-        updateRecordingsList();
-    }
-}
-
-function updateRecordingsList() {
-    const recordingsList = document.getElementById('recordingsList');
-    const recordingsContainer = document.getElementById('recordingsContainer');
-    
-    if (!currentLesson) {
-        recordingsList.classList.add('hidden');
-        return;
-    }
-    
-    const recordings = JSON.parse(localStorage.getItem('recordings') || '{}');
-    const lessonRecordings = recordings[currentLesson.id] || [];
-    
-    if (lessonRecordings.length === 0) {
-        recordingsContainer.innerHTML = '<p class="text-gray-500 text-center">No recordings yet</p>';
-    } else {
-        recordingsContainer.innerHTML = '';
-        lessonRecordings.forEach(recording => {
-            const recordingItem = document.createElement('div');
-            recordingItem.className = 'flex items-center justify-between p-3 border-b';
-            recordingItem.innerHTML = `
-                <div>
-                    <p class="font-semibold">${recording.filename}</p>
-                    <p class="text-sm text-gray-500">${new Date(recording.createdAt).toLocaleString()}</p>
-                </div>
-                <div class="flex space-x-2">
-                    <button onclick="playSavedRecording('${recording.url}')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm">Play</button>
-                    <button onclick="deleteRecording('${currentLesson.id}', '${recording.id}')" class="px-3 py-1 bg-red-500 text-white rounded text-sm">Delete</button>
-                </div>
-            `;
-            recordingsContainer.appendChild(recordingItem);
-        });
-    }
-    
-    recordingsList.classList.remove('hidden');
-}
-
-function playSavedRecording(url) {
-    if (audioElement) {
-        audioElement.pause();
-    }
-    
-    audioElement = new Audio(url);
-    audioElement.play();
-}
-
-function deleteRecording(lessonId, recordingId) {
-    const recordings = JSON.parse(localStorage.getItem('recordings') || '{}');
-    const lessonRecordings = recordings[lessonId] || [];
-    
-    const recordingIndex = lessonRecordings.findIndex(r => r.id === recordingId);
-    if (recordingIndex !== -1) {
-        const recording = lessonRecordings[recordingIndex];
-        
-        // Revoke the URL to free memory
-        if (recording.url) {
-            URL.revokeObjectURL(recording.url);
-        }
-        
-        lessonRecordings.splice(recordingIndex, 1);
-        recordings[lessonId] = lessonRecordings;
-        localStorage.setItem('recordings', JSON.stringify(recordings));
-        
-        updateRecordingsList();
     }
 } 
