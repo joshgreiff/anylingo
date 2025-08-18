@@ -129,6 +129,7 @@ function setupEventListeners() {
     // Create lesson buttons
     document.getElementById('saveLessonBtn').addEventListener('click', saveLesson);
     document.getElementById('createNewLessonBtn').addEventListener('click', createNewLesson);
+    document.getElementById('createNewLessonFromContentBtn').addEventListener('click', createNewLesson);
     
     // ReadAloud controls
     document.getElementById('startReadingBtn').addEventListener('click', startReading);
@@ -266,9 +267,22 @@ function saveLessons() {
 
 // Create a new lesson
 function createNewLesson() {
+    // Clear editing state
+    window.editingLessonId = null;
+    
+    // Clear form
     document.getElementById('lessonTitle').value = '';
     document.getElementById('lessonContent').value = '';
+    
+    // Clear any messages
     document.getElementById('createLessonMessage').classList.add('hidden');
+    
+    // Reset button text
+    const saveButton = document.getElementById('saveLessonBtn');
+    saveButton.textContent = 'Save Lesson';
+    
+    // Show create lesson section
+    showSection('createLesson');
 }
 
 // Save the current lesson
@@ -281,23 +295,48 @@ function saveLesson() {
         return;
     }
     
-    // Create lesson object
-    const lesson = {
-        id: Date.now().toString(),
-        title: title,
-        content: content,
-        createdAt: new Date().toISOString()
-    };
+    let lesson;
+    let isEditing = false;
     
-    // Save to lessons object
-    lessons[lesson.id] = lesson;
+    // Check if we're editing an existing lesson
+    if (window.editingLessonId && lessons[window.editingLessonId]) {
+        // Update existing lesson
+        lesson = lessons[window.editingLessonId];
+        lesson.title = title;
+        lesson.content = content;
+        lesson.updatedAt = new Date().toISOString();
+        isEditing = true;
+    } else {
+        // Create new lesson
+        lesson = {
+            id: Date.now().toString(),
+            title: title,
+            content: content,
+            createdAt: new Date().toISOString()
+        };
+        lessons[lesson.id] = lesson;
+    }
+    
     saveLessons();
     
     // Set as current lesson
     currentLesson = lesson;
     localStorage.setItem('currentLesson', JSON.stringify(currentLesson));
     
-    showMessage('createLessonMessage', 'Lesson saved successfully!', 'success');
+    // Clear editing state
+    window.editingLessonId = null;
+    
+    // Reset form button text
+    const saveButton = document.getElementById('saveLessonBtn');
+    saveButton.textContent = 'Save Lesson';
+    
+    // Clear form
+    document.getElementById('lessonTitle').value = '';
+    document.getElementById('lessonContent').value = '';
+    
+    const message = isEditing ? 'Lesson updated successfully!' : 'Lesson saved successfully!';
+    showMessage('createLessonMessage', message, 'success');
+    
     updateAllSections();
 }
 
@@ -328,12 +367,31 @@ function updateContentSection() {
     lessonsList.innerHTML = '';
     Object.values(lessons).forEach(lesson => {
         const lessonItem = document.createElement('div');
-        lessonItem.className = 'p-3 border rounded-md cursor-pointer hover:bg-gray-50 transition-colors';
+        lessonItem.className = 'p-3 border rounded-md hover:bg-gray-50 transition-colors';
         lessonItem.innerHTML = `
-            <h4 class="font-semibold">${lesson.title}</h4>
-            <p class="text-sm text-gray-500">${new Date(lesson.createdAt).toLocaleDateString()}</p>
+            <div class="flex justify-between items-start">
+                <div class="flex-1 cursor-pointer" onclick="selectLesson('${lesson.id}')">
+                    <h4 class="font-semibold">${lesson.title}</h4>
+                    <p class="text-sm text-gray-500">${new Date(lesson.createdAt).toLocaleDateString()}</p>
+                </div>
+                <div class="flex space-x-2 ml-3">
+                    <button 
+                        onclick="editLesson('${lesson.id}')" 
+                        class="px-2 py-1 text-xs btn-blue text-white rounded transition-colors"
+                        title="Edit lesson"
+                    >
+                        Edit
+                    </button>
+                    <button 
+                        onclick="deleteLesson('${lesson.id}')" 
+                        class="px-2 py-1 text-xs btn-red text-white rounded transition-colors"
+                        title="Delete lesson"
+                    >
+                        Delete
+                    </button>
+                </div>
+            </div>
         `;
-        lessonItem.addEventListener('click', () => selectLesson(lesson));
         lessonsList.appendChild(lessonItem);
     });
     
@@ -345,10 +403,52 @@ function updateContentSection() {
 }
 
 // Select a lesson
-function selectLesson(lesson) {
-    currentLesson = lesson;
+function selectLesson(lessonId) {
+    currentLesson = lessons[lessonId];
     localStorage.setItem('currentLesson', JSON.stringify(currentLesson));
     updateAllSections();
+}
+
+// Edit a lesson
+function editLesson(lessonId) {
+    const lesson = lessons[lessonId];
+    if (lesson) {
+        // Store the lesson ID being edited
+        window.editingLessonId = lessonId;
+        
+        // Populate the form
+        document.getElementById('lessonTitle').value = lesson.title;
+        document.getElementById('lessonContent').value = lesson.content;
+        
+        // Update the form button text
+        const saveButton = document.getElementById('saveLessonBtn');
+        saveButton.textContent = 'Update Lesson';
+        
+        // Clear any existing messages
+        document.getElementById('createLessonMessage').classList.add('hidden');
+        
+        // Show create lesson form
+        showSection('createLesson');
+    }
+}
+
+// Delete a lesson
+function deleteLesson(lessonId) {
+    if (confirm('Are you sure you want to delete this lesson? This action cannot be undone.')) {
+        delete lessons[lessonId];
+        saveLessons();
+        
+        // If the deleted lesson was the current lesson, clear it
+        if (currentLesson && currentLesson.id === lessonId) {
+            currentLesson = null;
+            localStorage.removeItem('currentLesson');
+        }
+        
+        updateContentSection();
+        updateAllSections();
+        
+        showMessage('contentMessage', 'Lesson deleted successfully!', 'success');
+    }
 }
 
 // Update ReadAloud section
@@ -1096,6 +1196,18 @@ function updateDrillsSection() {
     contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${currentLesson.content}</pre>`;
 }
 
+// Update record section
+function updateRecordSection() {
+    const titleElement = document.getElementById('recordLessonTitle');
+    
+    if (!currentLesson) {
+        titleElement.textContent = 'No lesson loaded';
+        return;
+    }
+    
+    titleElement.textContent = currentLesson.title;
+}
+
 // Show drill instructions
 function showDrillInstructions(drillNumber) {
     // Hide all drill instructions
@@ -1832,4 +1944,174 @@ function clearDrill3WordHighlights() {
             contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${currentLesson.content}</pre>`;
         }
     }
+}
+
+// Drill 4 Recording Functions
+function startDrillRecording() {
+    if (!recordingSupported) {
+        document.getElementById('recordingWarning').classList.remove('hidden');
+        return;
+    }
+    
+    // Request microphone access
+    navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+            // Create media recorder
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            
+            // Set up event listeners
+            mediaRecorder.addEventListener('dataavailable', event => {
+                audioChunks.push(event.data);
+            });
+            
+            mediaRecorder.addEventListener('stop', () => {
+                // Create audio blob
+                audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                audioUrl = URL.createObjectURL(audioBlob);
+                
+                // Create audio element
+                audioElement = new Audio(audioUrl);
+                
+                // Enable playback and re-record buttons
+                document.getElementById('playRecordingBtn').disabled = false;
+                document.getElementById('reRecordBtn').disabled = false;
+                
+                // Show message
+                showMessage('drillInstructions', 'Recording completed. Click "Play Recording" to listen.', 'success');
+            });
+            
+            // Start recording
+            mediaRecorder.start();
+            isRecording = true;
+            
+            // Update UI
+            document.getElementById('startRecordingBtn').disabled = true;
+            document.getElementById('stopRecordingBtn').disabled = false;
+            
+            // Show message
+            showMessage('drillInstructions', 'Recording started. Read the text aloud, then click "Stop Recording".', 'info');
+        })
+        .catch(error => {
+            console.error('Error accessing microphone:', error);
+            document.getElementById('recordingWarning').classList.remove('hidden');
+        });
+}
+
+function stopDrillRecording() {
+    if (!isRecording || !mediaRecorder) return;
+    
+    // Stop recording
+    mediaRecorder.stop();
+    isRecording = false;
+    
+    // Update UI
+    document.getElementById('startRecordingBtn').disabled = false;
+    document.getElementById('stopRecordingBtn').disabled = true;
+}
+
+function playDrillRecording() {
+    if (!audioElement) return;
+    
+    // Play the recording
+    audioElement.play();
+    
+    // Show message
+    showMessage('drillInstructions', 'Playing your recording...', 'info');
+}
+
+// Main Recording Functions
+function startMainRecording() {
+    if (!recordingSupported) {
+        document.getElementById('recordingWarning').classList.remove('hidden');
+        return;
+    }
+    
+    // Request microphone access
+    navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+            // Create media recorder
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            
+            // Set up event listeners
+            mediaRecorder.addEventListener('dataavailable', event => {
+                audioChunks.push(event.data);
+            });
+            
+            mediaRecorder.addEventListener('stop', () => {
+                // Create audio blob
+                audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                audioUrl = URL.createObjectURL(audioBlob);
+                
+                // Create audio element
+                audioElement = new Audio(audioUrl);
+                
+                // Enable playback and save buttons
+                document.getElementById('playMainRecordingBtn').disabled = false;
+                document.getElementById('saveRecordingBtn').disabled = false;
+                
+                // Show message
+                showMessage('contentMessage', 'Recording completed. Click "Play Recording" to listen.', 'success');
+            });
+            
+            // Start recording
+            mediaRecorder.start();
+            isRecording = true;
+            
+            // Update UI
+            document.getElementById('startMainRecordingBtn').disabled = true;
+            document.getElementById('stopMainRecordingBtn').disabled = false;
+            
+            // Show message
+            showMessage('contentMessage', 'Recording started. Speak clearly, then click "Stop Recording".', 'info');
+        })
+        .catch(error => {
+            console.error('Error accessing microphone:', error);
+            document.getElementById('recordingWarning').classList.remove('hidden');
+        });
+}
+
+function stopMainRecording() {
+    if (!isRecording || !mediaRecorder) return;
+    
+    // Stop recording
+    mediaRecorder.stop();
+    isRecording = false;
+    
+    // Stop all tracks
+    if (mediaRecorder.stream) {
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    }
+    
+    // Update UI
+    document.getElementById('startMainRecordingBtn').disabled = false;
+    document.getElementById('stopMainRecordingBtn').disabled = true;
+}
+
+function playMainRecording() {
+    if (!audioElement) return;
+    
+    // Play the recording
+    audioElement.play();
+    
+    // Show message
+    showMessage('contentMessage', 'Playing your recording...', 'info');
+}
+
+function saveRecording() {
+    if (!audioBlob) return;
+    
+    // Create download link
+    const url = URL.createObjectURL(audioBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `recording_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    // Show message
+    showMessage('contentMessage', 'Recording saved successfully!', 'success');
 } 
