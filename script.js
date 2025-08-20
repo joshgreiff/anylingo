@@ -9,10 +9,11 @@ let utterance = null;
 let isPlaying = false;
 let isLooping = false;
 let speechSynthesisSupported = false;
+let isPaused = false; // Track pause state properly
 
 // User preferences (persistent settings)
 let userPreferences = {
-    speechRate: 1.0,
+    speechRate: 0.7,
     targetLanguage: 'en',
     selectedText: null,
     highlightedWords: []
@@ -24,6 +25,9 @@ let highlightInterval = null;
 let currentWordIndex = 0;
 let words = [];
 let wordBoundaries = [];
+let pausedWordIndex = null; // Track word position when paused
+let pauseStartTime = 0; // Track when pause started
+let totalPauseTime = 0; // Track total pause time
 
 // Recording variables
 let mediaRecorder = null;
@@ -33,6 +37,9 @@ let audioUrl = null;
 let audioElement = null;
 let isRecording = false;
 let recordingSupported = false;
+
+// Translation popup management
+let currentTranslationPopup = null;
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
@@ -165,7 +172,8 @@ function setupEventListeners() {
     document.getElementById('startRecordingBtn').addEventListener('click', startDrillRecording);
     document.getElementById('stopRecordingBtn').addEventListener('click', stopDrillRecording);
     document.getElementById('playRecordingBtn').addEventListener('click', playDrillRecording);
-    document.getElementById('reRecordBtn').addEventListener('click', reRecord);
+    document.getElementById('saveDrillRecordingBtn').addEventListener('click', saveDrillRecording);
+    document.getElementById('reRecordBtn').addEventListener('click', resetDrillRecording);
     
     // Main recording controls
     document.getElementById('startMainRecordingBtn').addEventListener('click', startMainRecording);
@@ -522,7 +530,7 @@ function startReading() {
     
     // Calculate estimated duration for word highlighting
     words = currentLesson.content.split(/\s+/);
-    const wordsPerMinute = 150 * rate; // Approximate words per minute
+    const wordsPerMinute = 120 * rate; // Reduced from 150 to 120 for more accurate timing
     estimatedDuration = (words.length / wordsPerMinute) * 60; // Duration in seconds
     speechStartTime = Date.now();
     currentWordIndex = 0; // Reset speech position
@@ -530,6 +538,7 @@ function startReading() {
     
     utterance.onstart = () => {
         isPlaying = true;
+        isPaused = false;
         updateReadingButtons();
         // Start word highlighting
         startWordHighlighting();
@@ -537,6 +546,7 @@ function startReading() {
     
     utterance.onend = () => {
         isPlaying = false;
+        isPaused = false;
         clearWordHighlights();
         updateReadingButtons();
         if (isLooping) {
@@ -546,12 +556,14 @@ function startReading() {
     
     utterance.onpause = () => {
         isPlaying = false;
+        isPaused = true;
         clearWordHighlights();
         updateReadingButtons();
     };
     
     utterance.onresume = () => {
         isPlaying = true;
+        isPaused = false;
         updateReadingButtons();
         startWordHighlighting();
     };
@@ -583,7 +595,7 @@ function restartReading() {
     
     // Calculate estimated duration for word highlighting
     words = currentLesson.content.split(/\s+/);
-    const wordsPerMinute = 150 * rate;
+    const wordsPerMinute = 120 * rate;
     estimatedDuration = (words.length / wordsPerMinute) * 60;
     speechStartTime = Date.now();
     currentWordIndex = 0;
@@ -591,12 +603,14 @@ function restartReading() {
     
     utterance.onstart = () => {
         isPlaying = true;
+        isPaused = false;
         updateReadingButtons();
         startWordHighlighting();
     };
     
     utterance.onend = () => {
         isPlaying = false;
+        isPaused = false;
         clearWordHighlights();
         updateReadingButtons();
         if (isLooping) {
@@ -606,12 +620,14 @@ function restartReading() {
     
     utterance.onpause = () => {
         isPlaying = false;
+        isPaused = true;
         clearWordHighlights();
         updateReadingButtons();
     };
     
     utterance.onresume = () => {
         isPlaying = true;
+        isPaused = false;
         updateReadingButtons();
         startWordHighlighting();
     };
@@ -624,21 +640,34 @@ function pauseReading() {
     if (synth && isPlaying) {
         synth.pause();
         isPlaying = false;
-        // No need to reset currentSpeechPosition or lastUpdateTime here,
-        // as the next resume will continue from the current position.
-        clearWordHighlights();
+        isPaused = true;
+        // Store current word position when paused
+        pausedWordIndex = currentHighlightedWord;
+        // Track pause start time
+        pauseStartTime = Date.now();
+        // Don't clear highlights - just pause them
+        if (highlightInterval) {
+            clearInterval(highlightInterval);
+            highlightInterval = null;
+        }
         updateReadingButtons();
     }
 }
 
 // Continue reading
 function continueReading() {
-    if (synth && !isPlaying && utterance) {
-        // Calculate pause duration and add to total pause time
-        // This logic is now handled by the speech synthesis's onresume event.
-        // We just need to ensure the highlighting continues from the correct position.
+    if (synth && isPaused && utterance) {
+        synth.resume();
+        isPlaying = true;
+        isPaused = false;
+        // Calculate total pause time and adjust speech start time
+        const pauseDuration = Date.now() - pauseStartTime;
+        totalPauseTime += pauseDuration;
+        // Adjust speech start time to account for pause time
+        speechStartTime += pauseDuration;
         updateReadingButtons();
-        startWordHighlighting();
+        // Resume highlighting from stored position
+        resumeWordHighlightingFromPause();
     }
 }
 
@@ -663,7 +692,6 @@ function toggleLoop() {
 
 // Update reading buttons
 function updateReadingButtons() {
-    const isPaused = synth && synth.paused;
     document.getElementById('startReadingBtn').disabled = isPlaying || isPaused;
     document.getElementById('pauseReadingBtn').disabled = !isPlaying;
     document.getElementById('continueReadingBtn').disabled = !isPaused;
@@ -729,7 +757,7 @@ function startWordHighlighting() {
         currentPos = wordEnd;
     });
     
-    // Start highlighting words based on speech timing
+    // Start highlighting words based on speech timing with stable timing
     highlightInterval = setInterval(() => {
         if (!isPlaying) {
             clearWordHighlights();
@@ -737,9 +765,12 @@ function startWordHighlighting() {
         }
         
         // Calculate word position based on speech progress
-        // Use a slightly faster pace to keep up with speech synthesis
+        // Use stable timing to prevent oscillation
         const elapsedTime = Date.now() - speechStartTime;
-        const adjustedElapsedTime = elapsedTime * 1.1; // Speed up by 10% to keep up
+        const timingFactor = 1.6; // Fixed speed up factor - balanced highlighting
+        
+        // Simple forward progression without complex adaptation
+        const adjustedElapsedTime = elapsedTime * timingFactor;
         const progress = adjustedElapsedTime / (estimatedDuration * 1000);
         const targetWordIndex = Math.floor(progress * words.length);
         
@@ -752,6 +783,116 @@ function startWordHighlighting() {
             // Add new highlight
             currentHighlightedWord = targetWordIndex;
             addWordHighlight(targetWordIndex);
+        }
+    }, 50); // Update more frequently for smoother highlighting
+}
+
+// Resume highlighting from current position (for pause/continue)
+function resumeWordHighlighting() {
+    if (!currentLesson || !isPlaying) return;
+    
+    // Create word boundaries if they don't exist
+    if (wordBoundaries.length === 0) {
+        let currentPos = 0;
+        words.forEach((word, index) => {
+            const wordStart = currentLesson.content.indexOf(word, currentPos);
+            const wordEnd = wordStart + word.length;
+            wordBoundaries.push({
+                word: word,
+                start: wordStart,
+                end: wordEnd,
+                index: index
+            });
+            currentPos = wordEnd;
+        });
+    }
+    
+    // Resume highlighting from current position with stable timing
+    highlightInterval = setInterval(() => {
+        if (!isPlaying) {
+            clearWordHighlights();
+            return;
+        }
+        
+        // Calculate word position based on speech progress
+        // Use stable timing to prevent oscillation
+        const elapsedTime = Date.now() - speechStartTime;
+        const timingFactor = 1.6; // Fixed speed up factor - balanced highlighting
+        
+        // Simple forward progression without complex adaptation
+        const adjustedElapsedTime = elapsedTime * timingFactor;
+        const progress = adjustedElapsedTime / (estimatedDuration * 1000);
+        const targetWordIndex = Math.floor(progress * words.length);
+        
+        if (targetWordIndex !== currentHighlightedWord && targetWordIndex < words.length) {
+            // Remove previous highlight
+            if (currentHighlightedWord !== null) {
+                removeWordHighlight(currentHighlightedWord);
+            }
+            
+            // Add new highlight
+            currentHighlightedWord = targetWordIndex;
+            addWordHighlight(targetWordIndex);
+        }
+    }, 50); // Update more frequently for smoother highlighting
+}
+
+// Resume highlighting from paused position (for pause/continue)
+function resumeWordHighlightingFromPause() {
+    if (!currentLesson || !isPlaying) return;
+    
+    // Create word boundaries if they don't exist
+    if (wordBoundaries.length === 0) {
+        let currentPos = 0;
+        words.forEach((word, index) => {
+            const wordStart = currentLesson.content.indexOf(word, currentPos);
+            const wordEnd = wordStart + word.length;
+            wordBoundaries.push({
+                word: word,
+                start: wordStart,
+                end: wordEnd,
+                index: index
+            });
+            currentPos = wordEnd;
+        });
+    }
+    
+    // Start from the paused position if available
+    if (pausedWordIndex !== null && pausedWordIndex >= 0) {
+        currentHighlightedWord = pausedWordIndex;
+        // Highlight the word at the paused position
+        addWordHighlight(pausedWordIndex);
+    }
+    
+    // Resume highlighting with very conservative timing to prevent jumping ahead
+    highlightInterval = setInterval(() => {
+        if (!isPlaying) {
+            clearWordHighlights();
+            return;
+        }
+        
+        // Use very conservative timing after pause to prevent jumping ahead
+        const elapsedTime = Date.now() - speechStartTime;
+        const timingFactor = 0.8; // Much slower timing after pause
+        
+        // Simple forward progression with conservative timing
+        const adjustedElapsedTime = elapsedTime * timingFactor;
+        const progress = adjustedElapsedTime / (estimatedDuration * 1000);
+        const targetWordIndex = Math.floor(progress * words.length);
+        
+        // Ensure we don't go backwards from paused position
+        const minWordIndex = pausedWordIndex !== null ? pausedWordIndex : 0;
+        const finalTargetIndex = Math.max(targetWordIndex, minWordIndex);
+        
+        if (finalTargetIndex !== currentHighlightedWord && finalTargetIndex < words.length) {
+            // Remove previous highlight
+            if (currentHighlightedWord !== null) {
+                removeWordHighlight(currentHighlightedWord);
+            }
+            
+            // Add new highlight
+            currentHighlightedWord = finalTargetIndex;
+            addWordHighlight(finalTargetIndex);
         }
     }, 50); // Update more frequently for smoother highlighting
 }
@@ -912,26 +1053,45 @@ async function translateContent() {
     try {
         let textToTranslate = currentLesson.content;
         
-        // If user has selected specific text, use that instead
-        if (userPreferences.selectedText) {
-            textToTranslate = userPreferences.selectedText;
-        }
+        // Clear any selected text when doing full translation
+        userPreferences.selectedText = null;
+        saveUserPreferences();
         
         console.log('Text to translate:', textToTranslate.substring(0, 100) + '...');
         
         // Split text based on translation mode
         if (translationMode === 'sentence') {
-            const sentences = textToTranslate.split(/[.!?]+/).filter(s => s.trim());
+            // Normalize text: replace line breaks with spaces and clean up whitespace
+            const normalizedText = textToTranslate.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+            console.log('Normalized text:', normalizedText);
+            
+            // Improved sentence splitting that handles various sentence endings and patterns
+            const sentences = normalizedText
+                .split(/(?<=[.!?])\s+(?=[A-Z])/)
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+            
+            console.log('Found sentences:', sentences.length);
+            console.log('Sentences:', sentences);
+            
             const translatedSentences = [];
             
-            for (const sentence of sentences) {
-                if (sentence.trim()) {
-                    const translated = await translateText(sentence.trim(), sourceLanguage, targetLanguage);
-                    translatedSentences.push(translated);
+            for (let i = 0; i < sentences.length; i++) {
+                const sentence = sentences[i].trim();
+                if (sentence) {
+                    console.log(`Translating sentence ${i + 1}:`, sentence.substring(0, 50) + '...');
+                    try {
+                        const translated = await translateText(sentence, sourceLanguage, targetLanguage);
+                        translatedSentences.push(translated);
+                        console.log(`Translated sentence ${i + 1}:`, translated.substring(0, 50) + '...');
+                    } catch (error) {
+                        console.error(`Error translating sentence ${i + 1}:`, error);
+                        translatedSentences.push(sentence); // Keep original if translation fails
+                    }
                 }
             }
             
-            textToTranslate = translatedSentences.join('. ') + '.';
+            textToTranslate = translatedSentences.join(' ');
         } else if (translationMode === 'paragraph') {
             const paragraphs = textToTranslate.split(/\n\s*\n/).filter(p => p.trim());
             const translatedParagraphs = [];
@@ -983,7 +1143,16 @@ async function translateText(text, sourceLang, targetLang) {
         if (response.ok) {
             const data = await response.json();
             console.log('Google Translate response data:', data);
-            return data[0][0][0];
+            
+            // Check if we got a valid translation
+            if (data && data[0] && data[0][0] && data[0][0][0]) {
+                const translatedText = data[0][0][0];
+                console.log('Translated text:', translatedText);
+                return translatedText;
+            } else {
+                console.warn('Google Translate returned incomplete data:', data);
+                throw new Error('Incomplete translation response');
+            }
         } else {
             throw new Error(`Translation failed: ${response.status}`);
         }
@@ -1002,7 +1171,13 @@ async function translateText(text, sourceLang, targetLang) {
             if (altResponse.ok) {
                 const altData = await altResponse.json();
                 console.log('MyMemory response data:', altData);
-                return altData.responseData.translatedText;
+                
+                if (altData && altData.responseData && altData.responseData.translatedText) {
+                    return altData.responseData.translatedText;
+                } else {
+                    console.warn('MyMemory returned incomplete data:', altData);
+                    throw new Error('Incomplete translation response');
+                }
             }
         } catch (altError) {
             console.error('MyMemory translation error:', altError);
@@ -1326,7 +1501,7 @@ function startDrill1Reading() {
     
     // Calculate estimated duration for word highlighting
     words = currentLesson.content.split(/\s+/);
-    const wordsPerMinute = 150 * rate;
+    const wordsPerMinute = 120 * rate; // Reduced from 150 to 120 for more accurate timing
     estimatedDuration = (words.length / wordsPerMinute) * 60;
     speechStartTime = Date.now();
     currentWordIndex = 0; // Reset speech position
@@ -1334,12 +1509,14 @@ function startDrill1Reading() {
     
     utterance.onstart = () => {
         isPlaying = true;
+        isPaused = false;
         updateDrill1Buttons();
         startDrill1WordHighlighting();
     };
     
     utterance.onend = () => {
         isPlaying = false;
+        isPaused = false;
         clearDrill1WordHighlights();
         updateDrill1Buttons();
         if (isLooping) {
@@ -1349,12 +1526,14 @@ function startDrill1Reading() {
     
     utterance.onpause = () => {
         isPlaying = false;
+        isPaused = true;
         clearDrill1WordHighlights();
         updateDrill1Buttons();
     };
     
     utterance.onresume = () => {
         isPlaying = true;
+        isPaused = false;
         updateDrill1Buttons();
         startDrill1WordHighlighting();
     };
@@ -1385,7 +1564,7 @@ function restartDrill1Reading() {
     
     // Calculate estimated duration for word highlighting
     words = currentLesson.content.split(/\s+/);
-    const wordsPerMinute = 150 * rate;
+    const wordsPerMinute = 120 * rate; // Reduced from 150 to 120 for more accurate timing
     estimatedDuration = (words.length / wordsPerMinute) * 60;
     speechStartTime = Date.now();
     currentWordIndex = 0;
@@ -1393,12 +1572,14 @@ function restartDrill1Reading() {
     
     utterance.onstart = () => {
         isPlaying = true;
+        isPaused = false;
         updateDrill1Buttons();
         startDrill1WordHighlighting();
     };
     
     utterance.onend = () => {
         isPlaying = false;
+        isPaused = false;
         clearDrill1WordHighlights();
         updateDrill1Buttons();
         if (isLooping) {
@@ -1408,12 +1589,14 @@ function restartDrill1Reading() {
     
     utterance.onpause = () => {
         isPlaying = false;
+        isPaused = true;
         clearDrill1WordHighlights();
         updateDrill1Buttons();
     };
     
     utterance.onresume = () => {
         isPlaying = true;
+        isPaused = false;
         updateDrill1Buttons();
         startDrill1WordHighlighting();
     };
@@ -1425,20 +1608,28 @@ function pauseDrill1Reading() {
     if (synth && isPlaying) {
         synth.pause();
         isPlaying = false;
-        // No need to reset currentSpeechPosition or lastUpdateTime here,
-        // as the next resume will continue from the current position.
-        clearDrill1WordHighlights();
+        isPaused = true;
+        // Store current word position when paused
+        pausedWordIndex = currentHighlightedWord;
+        // Track pause start time
+        pauseStartTime = Date.now();
+        // Don't clear highlights - just pause them
+        if (highlightInterval) {
+            clearInterval(highlightInterval);
+            highlightInterval = null;
+        }
         updateDrill1Buttons();
     }
 }
 
 function continueDrill1Reading() {
-    if (synth && !isPlaying && utterance) {
-        // Calculate pause duration and add to total pause time
-        // This logic is now handled by the speech synthesis's onresume event.
-        // We just need to ensure the highlighting continues from the correct position.
+    if (synth && isPaused && utterance) {
+        synth.resume();
+        isPlaying = true;
+        isPaused = false;
         updateDrill1Buttons();
-        startDrill1WordHighlighting();
+        // Resume highlighting from stored position
+        resumeDrill1WordHighlightingFromPause();
     }
 }
 
@@ -1452,7 +1643,6 @@ function stopDrill1Reading() {
 }
 
 function updateDrill1Buttons() {
-    const isPaused = synth && synth.paused;
     document.getElementById('drill1StartBtn').disabled = isPlaying || isPaused;
     document.getElementById('drill1PauseBtn').disabled = !isPlaying;
     document.getElementById('drill1ContinueBtn').disabled = !isPaused;
@@ -1480,7 +1670,7 @@ function startDrill1WordHighlighting() {
         currentPos = wordEnd;
     });
     
-    // Start highlighting words based on speech timing
+    // Start highlighting words based on speech timing with stable timing
     highlightInterval = setInterval(() => {
         if (!isPlaying) {
             clearDrill1WordHighlights();
@@ -1488,9 +1678,12 @@ function startDrill1WordHighlighting() {
         }
         
         // Calculate word position based on speech progress
-        // Use a slightly faster pace to keep up with speech synthesis
+        // Use stable timing to prevent oscillation
         const elapsedTime = Date.now() - speechStartTime;
-        const adjustedElapsedTime = elapsedTime * 1.1; // Speed up by 10% to keep up
+        const timingFactor = 1.6; // Fixed speed up factor - balanced highlighting
+        
+        // Simple forward progression without complex adaptation
+        const adjustedElapsedTime = elapsedTime * timingFactor;
         const progress = adjustedElapsedTime / (estimatedDuration * 1000);
         const targetWordIndex = Math.floor(progress * words.length);
         
@@ -1503,6 +1696,116 @@ function startDrill1WordHighlighting() {
             // Add new highlight
             currentHighlightedWord = targetWordIndex;
             addDrill1WordHighlight(targetWordIndex);
+        }
+    }, 50); // Update more frequently for smoother highlighting
+}
+
+// Resume highlighting from current position (for pause/continue) - Drill 1
+function resumeDrill1WordHighlighting() {
+    if (!currentLesson || !isPlaying) return;
+    
+    // Create word boundaries if they don't exist
+    if (wordBoundaries.length === 0) {
+        let currentPos = 0;
+        words.forEach((word, index) => {
+            const wordStart = currentLesson.content.indexOf(word, currentPos);
+            const wordEnd = wordStart + word.length;
+            wordBoundaries.push({
+                word: word,
+                start: wordStart,
+                end: wordEnd,
+                index: index
+            });
+            currentPos = wordEnd;
+        });
+    }
+    
+    // Resume highlighting from current position with stable timing
+    highlightInterval = setInterval(() => {
+        if (!isPlaying) {
+            clearDrill1WordHighlights();
+            return;
+        }
+        
+        // Calculate word position based on speech progress
+        // Use stable timing to prevent oscillation
+        const elapsedTime = Date.now() - speechStartTime;
+        const timingFactor = 1.6; // Fixed speed up factor - balanced highlighting
+        
+        // Simple forward progression without complex adaptation
+        const adjustedElapsedTime = elapsedTime * timingFactor;
+        const progress = adjustedElapsedTime / (estimatedDuration * 1000);
+        const targetWordIndex = Math.floor(progress * words.length);
+        
+        if (targetWordIndex !== currentHighlightedWord && targetWordIndex < words.length) {
+            // Remove previous highlight
+            if (currentHighlightedWord !== null) {
+                removeDrill1WordHighlight(currentHighlightedWord);
+            }
+            
+            // Add new highlight
+            currentHighlightedWord = targetWordIndex;
+            addDrill1WordHighlight(targetWordIndex);
+        }
+    }, 50); // Update more frequently for smoother highlighting
+}
+
+// Resume highlighting from paused position (for pause/continue) - Drill 1
+function resumeDrill1WordHighlightingFromPause() {
+    if (!currentLesson || !isPlaying) return;
+    
+    // Create word boundaries if they don't exist
+    if (wordBoundaries.length === 0) {
+        let currentPos = 0;
+        words.forEach((word, index) => {
+            const wordStart = currentLesson.content.indexOf(word, currentPos);
+            const wordEnd = wordStart + word.length;
+            wordBoundaries.push({
+                word: word,
+                start: wordStart,
+                end: wordEnd,
+                index: index
+            });
+            currentPos = wordEnd;
+        });
+    }
+    
+    // Start from the paused position if available
+    if (pausedWordIndex !== null && pausedWordIndex >= 0) {
+        currentHighlightedWord = pausedWordIndex;
+        // Highlight the word at the paused position
+        addDrill1WordHighlight(pausedWordIndex);
+    }
+    
+    // Resume highlighting with very conservative timing to prevent jumping ahead
+    highlightInterval = setInterval(() => {
+        if (!isPlaying) {
+            clearDrill1WordHighlights();
+            return;
+        }
+        
+        // Use very conservative timing after pause to prevent jumping ahead
+        const elapsedTime = Date.now() - speechStartTime;
+        const timingFactor = 0.8; // Much slower timing after pause
+        
+        // Simple forward progression with conservative timing
+        const adjustedElapsedTime = elapsedTime * timingFactor;
+        const progress = adjustedElapsedTime / (estimatedDuration * 1000);
+        const targetWordIndex = Math.floor(progress * words.length);
+        
+        // Ensure we don't go backwards from paused position
+        const minWordIndex = pausedWordIndex !== null ? pausedWordIndex : 0;
+        const finalTargetIndex = Math.max(targetWordIndex, minWordIndex);
+        
+        if (finalTargetIndex !== currentHighlightedWord && finalTargetIndex < words.length) {
+            // Remove previous highlight
+            if (currentHighlightedWord !== null) {
+                removeDrill1WordHighlight(currentHighlightedWord);
+            }
+            
+            // Add new highlight
+            currentHighlightedWord = finalTargetIndex;
+            addDrill1WordHighlight(finalTargetIndex);
         }
     }, 50); // Update more frequently for smoother highlighting
 }
@@ -1615,28 +1918,45 @@ async function translateSelection(text) {
         const targetLanguage = userPreferences.targetLanguage || 'en';
         const translated = await translateText(text, 'auto', targetLanguage);
         
-        // Show translation in a better way than alert
+        // Remove any existing translation popup
+        if (currentTranslationPopup) {
+            currentTranslationPopup.remove();
+        }
+        
+        // Show translation in a larger, permanent popup
         const translationDiv = document.createElement('div');
-        translationDiv.className = 'fixed top-4 right-4 bg-white border border-gray-300 rounded-lg shadow-lg p-4 max-w-sm z-50';
+        translationDiv.className = 'fixed top-4 right-4 bg-white border border-gray-300 rounded-lg shadow-lg p-6 max-w-md z-50';
         translationDiv.innerHTML = `
-            <div class="flex justify-between items-center mb-2">
-                <h4 class="font-semibold">Translation</h4>
-                <button onclick="this.parentElement.parentElement.remove()" class="text-gray-500 hover:text-gray-700">×</button>
+            <div class="flex justify-between items-center mb-4">
+                <h4 class="font-semibold text-lg">Translation</h4>
+                <button onclick="clearTranslationPopup()" class="text-gray-500 hover:text-gray-700 text-xl font-bold">×</button>
             </div>
-            <p class="text-sm text-gray-600 mb-2">${text}</p>
-            <p class="font-medium">${translated}</p>
+            <div class="mb-4">
+                <h5 class="font-medium text-sm text-gray-600 mb-2">Original Text:</h5>
+                <p class="text-sm bg-gray-100 p-3 rounded border">${text}</p>
+            </div>
+            <div class="mb-4">
+                <h5 class="font-medium text-sm text-gray-600 mb-2">Translation:</h5>
+                <p class="text-base font-medium bg-blue-50 p-3 rounded border">${translated}</p>
+            </div>
+            <div class="flex justify-end">
+                <button onclick="clearTranslationPopup()" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded transition-colors">
+                    Clear
+                </button>
+            </div>
         `;
         document.body.appendChild(translationDiv);
-        
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
-            if (translationDiv.parentElement) {
-                translationDiv.remove();
-            }
-        }, 5000);
+        currentTranslationPopup = translationDiv;
         
     } catch (error) {
         alert('Translation failed. Please try again.');
+    }
+}
+
+function clearTranslationPopup() {
+    if (currentTranslationPopup) {
+        currentTranslationPopup.remove();
+        currentTranslationPopup = null;
     }
 }
 
@@ -1717,7 +2037,7 @@ function startDrill3Reading() {
     
     // Calculate estimated duration for word highlighting
     words = currentLesson.content.split(/\s+/);
-    const wordsPerMinute = 150 * rate;
+    const wordsPerMinute = 120 * rate; // Reduced from 150 to 120 for more accurate timing
     estimatedDuration = (words.length / wordsPerMinute) * 60;
     speechStartTime = Date.now();
     currentWordIndex = 0; // Reset speech position
@@ -1725,12 +2045,14 @@ function startDrill3Reading() {
     
     utterance.onstart = () => {
         isPlaying = true;
+        isPaused = false;
         updateDrill3Buttons();
         startDrill3WordHighlighting();
     };
     
     utterance.onend = () => {
         isPlaying = false;
+        isPaused = false;
         clearDrill3WordHighlights();
         updateDrill3Buttons();
         if (isLooping) {
@@ -1740,12 +2062,14 @@ function startDrill3Reading() {
     
     utterance.onpause = () => {
         isPlaying = false;
+        isPaused = true;
         clearDrill3WordHighlights();
         updateDrill3Buttons();
     };
     
     utterance.onresume = () => {
         isPlaying = true;
+        isPaused = false;
         updateDrill3Buttons();
         startDrill3WordHighlighting();
     };
@@ -1760,6 +2084,7 @@ function restartDrill3Reading() {
     if (synth) {
         synth.cancel();
         isPlaying = false;
+        isPaused = false; // Reset isPaused on restart
         clearDrill3WordHighlights();
     }
     
@@ -1776,7 +2101,7 @@ function restartDrill3Reading() {
     
     // Calculate estimated duration for word highlighting
     words = currentLesson.content.split(/\s+/);
-    const wordsPerMinute = 150 * rate;
+    const wordsPerMinute = 120 * rate; // Reduced from 150 to 120 for more accurate timing
     estimatedDuration = (words.length / wordsPerMinute) * 60;
     speechStartTime = Date.now();
     currentWordIndex = 0;
@@ -1784,12 +2109,14 @@ function restartDrill3Reading() {
     
     utterance.onstart = () => {
         isPlaying = true;
+        isPaused = false;
         updateDrill3Buttons();
         startDrill3WordHighlighting();
     };
     
     utterance.onend = () => {
         isPlaying = false;
+        isPaused = false;
         clearDrill3WordHighlights();
         updateDrill3Buttons();
         if (isLooping) {
@@ -1799,12 +2126,14 @@ function restartDrill3Reading() {
     
     utterance.onpause = () => {
         isPlaying = false;
+        isPaused = true;
         clearDrill3WordHighlights();
         updateDrill3Buttons();
     };
     
     utterance.onresume = () => {
         isPlaying = true;
+        isPaused = false;
         updateDrill3Buttons();
         startDrill3WordHighlighting();
     };
@@ -1816,20 +2145,26 @@ function pauseDrill3Reading() {
     if (synth && isPlaying) {
         synth.pause();
         isPlaying = false;
-        // No need to reset currentSpeechPosition or lastUpdateTime here,
-        // as the next resume will continue from the current position.
-        clearDrill3WordHighlights();
+        isPaused = true;
+        // Store current word position when paused
+        pausedWordIndex = currentHighlightedWord;
+        // Don't clear highlights - just pause them
+        if (highlightInterval) {
+            clearInterval(highlightInterval);
+            highlightInterval = null;
+        }
         updateDrill3Buttons();
     }
 }
 
 function continueDrill3Reading() {
-    if (synth && !isPlaying && utterance) {
-        // Calculate pause duration and add to total pause time
-        // This logic is now handled by the speech synthesis's onresume event.
-        // We just need to ensure the highlighting continues from the correct position.
+    if (synth && isPaused && utterance) {
+        synth.resume();
+        isPlaying = true;
+        isPaused = false;
         updateDrill3Buttons();
-        startDrill3WordHighlighting();
+        // Resume highlighting from stored position
+        resumeDrill3WordHighlightingFromPause();
     }
 }
 
@@ -1843,7 +2178,6 @@ function stopDrill3Reading() {
 }
 
 function updateDrill3Buttons() {
-    const isPaused = synth && synth.paused;
     document.getElementById('drill3StartBtn').disabled = isPlaying || isPaused;
     document.getElementById('drill3PauseBtn').disabled = !isPlaying;
     document.getElementById('drill3ContinueBtn').disabled = !isPaused;
@@ -1871,7 +2205,7 @@ function startDrill3WordHighlighting() {
         currentPos = wordEnd;
     });
     
-    // Start highlighting words based on speech timing
+    // Start highlighting words based on speech timing with stable timing
     highlightInterval = setInterval(() => {
         if (!isPlaying) {
             clearDrill3WordHighlights();
@@ -1879,9 +2213,12 @@ function startDrill3WordHighlighting() {
         }
         
         // Calculate word position based on speech progress
-        // Use a slightly faster pace to keep up with speech synthesis
+        // Use stable timing to prevent oscillation
         const elapsedTime = Date.now() - speechStartTime;
-        const adjustedElapsedTime = elapsedTime * 1.1; // Speed up by 10% to keep up
+        const timingFactor = 1.6; // Fixed speed up factor - balanced highlighting
+        
+        // Simple forward progression without complex adaptation
+        const adjustedElapsedTime = elapsedTime * timingFactor;
         const progress = adjustedElapsedTime / (estimatedDuration * 1000);
         const targetWordIndex = Math.floor(progress * words.length);
         
@@ -1894,6 +2231,116 @@ function startDrill3WordHighlighting() {
             // Add new highlight
             currentHighlightedWord = targetWordIndex;
             addDrill3WordHighlight(targetWordIndex);
+        }
+    }, 50); // Update more frequently for smoother highlighting
+}
+
+// Resume highlighting from current position (for pause/continue) - Drill 3
+function resumeDrill3WordHighlighting() {
+    if (!currentLesson || !isPlaying) return;
+    
+    // Create word boundaries if they don't exist
+    if (wordBoundaries.length === 0) {
+        let currentPos = 0;
+        words.forEach((word, index) => {
+            const wordStart = currentLesson.content.indexOf(word, currentPos);
+            const wordEnd = wordStart + word.length;
+            wordBoundaries.push({
+                word: word,
+                start: wordStart,
+                end: wordEnd,
+                index: index
+            });
+            currentPos = wordEnd;
+        });
+    }
+    
+    // Resume highlighting from current position with stable timing
+    highlightInterval = setInterval(() => {
+        if (!isPlaying) {
+            clearDrill3WordHighlights();
+            return;
+        }
+        
+        // Calculate word position based on speech progress
+        // Use stable timing to prevent oscillation
+        const elapsedTime = Date.now() - speechStartTime;
+        const timingFactor = 1.6; // Fixed speed up factor - balanced highlighting
+        
+        // Simple forward progression without complex adaptation
+        const adjustedElapsedTime = elapsedTime * timingFactor;
+        const progress = adjustedElapsedTime / (estimatedDuration * 1000);
+        const targetWordIndex = Math.floor(progress * words.length);
+        
+        if (targetWordIndex !== currentHighlightedWord && targetWordIndex < words.length) {
+            // Remove previous highlight
+            if (currentHighlightedWord !== null) {
+                removeDrill3WordHighlight(currentHighlightedWord);
+            }
+            
+            // Add new highlight
+            currentHighlightedWord = targetWordIndex;
+            addDrill3WordHighlight(targetWordIndex);
+        }
+    }, 50); // Update more frequently for smoother highlighting
+}
+
+// Resume highlighting from paused position (for pause/continue) - Drill 3
+function resumeDrill3WordHighlightingFromPause() {
+    if (!currentLesson || !isPlaying) return;
+    
+    // Create word boundaries if they don't exist
+    if (wordBoundaries.length === 0) {
+        let currentPos = 0;
+        words.forEach((word, index) => {
+            const wordStart = currentLesson.content.indexOf(word, currentPos);
+            const wordEnd = wordStart + word.length;
+            wordBoundaries.push({
+                word: word,
+                start: wordStart,
+                end: wordEnd,
+                index: index
+            });
+            currentPos = wordEnd;
+        });
+    }
+    
+    // Start from the paused position if available
+    if (pausedWordIndex !== null && pausedWordIndex >= 0) {
+        currentHighlightedWord = pausedWordIndex;
+        // Highlight the word at the paused position
+        addDrill3WordHighlight(pausedWordIndex);
+    }
+    
+    // Resume highlighting with very conservative timing to prevent jumping ahead
+    highlightInterval = setInterval(() => {
+        if (!isPlaying) {
+            clearDrill3WordHighlights();
+            return;
+        }
+        
+        // Use very conservative timing after pause to prevent jumping ahead
+        const elapsedTime = Date.now() - speechStartTime;
+        const timingFactor = 0.8; // Much slower timing after pause
+        
+        // Simple forward progression with conservative timing
+        const adjustedElapsedTime = elapsedTime * timingFactor;
+        const progress = adjustedElapsedTime / (estimatedDuration * 1000);
+        const targetWordIndex = Math.floor(progress * words.length);
+        
+        // Ensure we don't go backwards from paused position
+        const minWordIndex = pausedWordIndex !== null ? pausedWordIndex : 0;
+        const finalTargetIndex = Math.max(targetWordIndex, minWordIndex);
+        
+        if (finalTargetIndex !== currentHighlightedWord && finalTargetIndex < words.length) {
+            // Remove previous highlight
+            if (currentHighlightedWord !== null) {
+                removeDrill3WordHighlight(currentHighlightedWord);
+            }
+            
+            // Add new highlight
+            currentHighlightedWord = finalTargetIndex;
+            addDrill3WordHighlight(finalTargetIndex);
         }
     }, 50); // Update more frequently for smoother highlighting
 }
@@ -1973,12 +2420,13 @@ function startDrillRecording() {
                 // Create audio element
                 audioElement = new Audio(audioUrl);
                 
-                // Enable playback and re-record buttons
+                // Enable playback, save, and re-record buttons
                 document.getElementById('playRecordingBtn').disabled = false;
+                document.getElementById('saveDrillRecordingBtn').disabled = false;
                 document.getElementById('reRecordBtn').disabled = false;
                 
                 // Show message
-                showMessage('drillInstructions', 'Recording completed. Click "Play Recording" to listen.', 'success');
+                showMessage('drillInstructions', 'Recording completed. Click "Play Recording" to listen or "Save Recording" to download.', 'success');
             });
             
             // Start recording
@@ -1988,6 +2436,13 @@ function startDrillRecording() {
             // Update UI
             document.getElementById('startRecordingBtn').disabled = true;
             document.getElementById('stopRecordingBtn').disabled = false;
+            
+            // Show recording indicator
+            const recordingIndicator = document.getElementById('recordingIndicator');
+            if (recordingIndicator) {
+                recordingIndicator.classList.remove('hidden');
+                recordingIndicator.innerHTML = '<span class="text-red-500 font-bold">🔴 RECORDING...</span>';
+            }
             
             // Show message
             showMessage('drillInstructions', 'Recording started. Read the text aloud, then click "Stop Recording".', 'info');
@@ -2005,9 +2460,20 @@ function stopDrillRecording() {
     mediaRecorder.stop();
     isRecording = false;
     
+    // Stop all tracks
+    if (mediaRecorder.stream) {
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    }
+    
     // Update UI
     document.getElementById('startRecordingBtn').disabled = false;
     document.getElementById('stopRecordingBtn').disabled = true;
+    
+    // Hide recording indicator
+    const recordingIndicator = document.getElementById('recordingIndicator');
+    if (recordingIndicator) {
+        recordingIndicator.classList.add('hidden');
+    }
 }
 
 function playDrillRecording() {
@@ -2018,6 +2484,39 @@ function playDrillRecording() {
     
     // Show message
     showMessage('drillInstructions', 'Playing your recording...', 'info');
+}
+
+function saveDrillRecording() {
+    if (!audioBlob) return;
+    
+    // Create download link
+    const url = URL.createObjectURL(audioBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `drill_recording_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    // Show message
+    showMessage('drillInstructions', 'Recording saved successfully!', 'success');
+}
+
+function resetDrillRecording() {
+    // Reset recording state
+    audioChunks = [];
+    audioBlob = null;
+    audioUrl = null;
+    audioElement = null;
+    
+    // Update UI
+    document.getElementById('playRecordingBtn').disabled = true;
+    document.getElementById('reRecordBtn').disabled = true;
+    document.getElementById('startRecordingBtn').disabled = false;
+    
+    // Show message
+    showMessage('drillInstructions', 'Ready to record again.', 'info');
 }
 
 // Main Recording Functions
@@ -2052,7 +2551,7 @@ function startMainRecording() {
                 document.getElementById('saveRecordingBtn').disabled = false;
                 
                 // Show message
-                showMessage('contentMessage', 'Recording completed. Click "Play Recording" to listen.', 'success');
+                showMessage('contentMessage', 'Recording completed. Click "Play Recording" to listen or "Save Recording" to download.', 'success');
             });
             
             // Start recording
@@ -2062,6 +2561,13 @@ function startMainRecording() {
             // Update UI
             document.getElementById('startMainRecordingBtn').disabled = true;
             document.getElementById('stopMainRecordingBtn').disabled = false;
+            
+            // Show recording indicator if it exists
+            const recordingIndicator = document.getElementById('mainRecordingIndicator');
+            if (recordingIndicator) {
+                recordingIndicator.classList.remove('hidden');
+                recordingIndicator.innerHTML = '<span class="text-red-500 font-bold">🔴 RECORDING...</span>';
+            }
             
             // Show message
             showMessage('contentMessage', 'Recording started. Speak clearly, then click "Stop Recording".', 'info');
@@ -2087,6 +2593,12 @@ function stopMainRecording() {
     // Update UI
     document.getElementById('startMainRecordingBtn').disabled = false;
     document.getElementById('stopMainRecordingBtn').disabled = true;
+    
+    // Hide recording indicator if it exists
+    const recordingIndicator = document.getElementById('mainRecordingIndicator');
+    if (recordingIndicator) {
+        recordingIndicator.classList.add('hidden');
+    }
 }
 
 function playMainRecording() {
