@@ -2,6 +2,7 @@
 let currentSection = 'home';
 let currentLesson = null;
 let lessons = {};
+let sentenceMappings = []; // Store mappings between original and translated sentences
 
 // Speech synthesis variables
 let synth = null;
@@ -1066,8 +1067,9 @@ async function translateContent() {
             console.log('Normalized text:', normalizedText);
             
             // Improved sentence splitting that handles various sentence endings and patterns
+            // Split on sentence endings followed by whitespace, regardless of case
             const sentences = normalizedText
-                .split(/(?<=[.!?])\s+(?=[A-Z])/)
+                .split(/(?<=[.!?])\s+/)
                 .map(s => s.trim())
                 .filter(s => s.length > 0);
             
@@ -1075,6 +1077,7 @@ async function translateContent() {
             console.log('Sentences:', sentences);
             
             const translatedSentences = [];
+            sentenceMappings = []; // Clear previous mappings
             
             for (let i = 0; i < sentences.length; i++) {
                 const sentence = sentences[i].trim();
@@ -1083,10 +1086,25 @@ async function translateContent() {
                     try {
                         const translated = await translateText(sentence, sourceLanguage, targetLanguage);
                         translatedSentences.push(translated);
+                        
+                        // Store the mapping between original and translated sentences
+                        sentenceMappings.push({
+                            original: sentence,
+                            translated: translated,
+                            index: i
+                        });
+                        
                         console.log(`Translated sentence ${i + 1}:`, translated.substring(0, 50) + '...');
                     } catch (error) {
                         console.error(`Error translating sentence ${i + 1}:`, error);
                         translatedSentences.push(sentence); // Keep original if translation fails
+                        
+                        // Store mapping with original as both original and translated
+                        sentenceMappings.push({
+                            original: sentence,
+                            translated: sentence,
+                            index: i
+                        });
                     }
                 }
             }
@@ -1212,6 +1230,9 @@ function handleTextClick(event) {
         const sentence = findSentenceAtPosition(text, clickPosition);
         
         if (sentence) {
+            // Clear any existing highlights first
+            clearHighlights();
+            
             // Highlight in the clicked element
             highlightSentence(element, sentence);
             
@@ -1296,39 +1317,81 @@ function getClickPosition(element, event) {
 
 // Find sentence at position
 function findSentenceAtPosition(text, position) {
-    const lines = text.split('\n');
-    let charCount = 0;
+    // Normalize text and split into sentences using the same logic as translation
+    const normalizedText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    const sentences = normalizedText
+        .split(/(?<=[.!?])\s+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
     
-    for (let i = 0; i < lines.length; i++) {
-        if (i === position.line) {
-            const line = lines[i];
-            const sentences = line.split(/[.!?]+/);
-            let sentenceStart = 0;
-            
-            for (const sentence of sentences) {
-                const sentenceEnd = sentenceStart + sentence.length;
-                if (charCount + position.char >= sentenceStart && charCount + position.char <= sentenceEnd) {
-                    return sentence.trim();
-                }
-                sentenceStart = sentenceEnd + 1; // +1 for the punctuation
-            }
-        }
-        charCount += lines[i].length + 1; // +1 for newline
-    }
+    // Calculate approximate character position
+    const lineHeight = 20; // Approximate line height
+    const charWidth = 8; // Approximate character width
+    const approximateCharPosition = position.line * 80 + position.char; // 80 chars per line approximation
     
-    return null;
-}
-
-// Find matching sentence in text (simple implementation)
-function findMatchingSentence(text, targetSentence) {
-    // This is a simplified matching - in a real implementation you'd use more sophisticated matching
-    const sentences = text.split(/[.!?]+/).filter(s => s.trim());
+    // Find which sentence contains this character position
+    let currentPosition = 0;
     for (const sentence of sentences) {
-        if (sentence.trim().length > 0) {
+        const sentenceLength = sentence.length + 1; // +1 for the space after sentence
+        if (approximateCharPosition >= currentPosition && approximateCharPosition < currentPosition + sentenceLength) {
             return sentence.trim();
         }
+        currentPosition += sentenceLength;
     }
-    return null;
+    
+    // If no exact match found, return the first sentence
+    return sentences.length > 0 ? sentences[0].trim() : null;
+}
+
+// Find matching sentence in text (improved implementation)
+function findMatchingSentence(text, targetSentence) {
+    // First, try to use stored sentence mappings if available
+    if (sentenceMappings.length > 0) {
+        // Find the mapping that contains the target sentence
+        const mapping = sentenceMappings.find(m => 
+            m.original === targetSentence || m.translated === targetSentence
+        );
+        
+        if (mapping) {
+            // Return the corresponding sentence in the other language
+            if (mapping.original === targetSentence) {
+                return mapping.translated;
+            } else {
+                return mapping.original;
+            }
+        }
+    }
+    
+    // Fallback to the previous logic if no mappings are available
+    const normalizedText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    const sentences = normalizedText
+        .split(/(?<=[.!?])\s+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+    
+    // Find the sentence that best matches the target sentence
+    let bestMatch = null;
+    let bestScore = 0;
+    
+    for (const sentence of sentences) {
+        if (sentence.trim().length > 0) {
+            // Calculate a simple similarity score based on length and word count
+            const targetWords = targetSentence.split(/\s+/).length;
+            const sentenceWords = sentence.split(/\s+/).length;
+            const lengthDiff = Math.abs(targetSentence.length - sentence.length);
+            const wordDiff = Math.abs(targetWords - sentenceWords);
+            
+            // Score based on length similarity and word count similarity
+            const score = 1 / (1 + lengthDiff + wordDiff);
+            
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = sentence.trim();
+            }
+        }
+    }
+    
+    return bestMatch;
 }
 
 // Highlight sentence in element
