@@ -1060,56 +1060,70 @@ async function translateContent() {
         
         console.log('Text to translate:', textToTranslate.substring(0, 100) + '...');
         
-        // Split text based on translation mode
-        if (translationMode === 'sentence') {
-            // Normalize text: replace line breaks with spaces and clean up whitespace
-            const normalizedText = textToTranslate.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-            console.log('Normalized text:', normalizedText);
-            
-            // Improved sentence splitting that handles various sentence endings and patterns
-            // Split on sentence endings followed by whitespace, regardless of case
-            const sentences = normalizedText
-                .split(/(?<=[.!?])\s+/)
-                .map(s => s.trim())
-                .filter(s => s.length > 0);
-            
-            console.log('Found sentences:', sentences.length);
-            console.log('Sentences:', sentences);
-            
-            const translatedSentences = [];
-            sentenceMappings = []; // Clear previous mappings
-            
-            for (let i = 0; i < sentences.length; i++) {
-                const sentence = sentences[i].trim();
-                if (sentence) {
-                    console.log(`Translating sentence ${i + 1}:`, sentence.substring(0, 50) + '...');
-                    try {
-                        const translated = await translateText(sentence, sourceLanguage, targetLanguage);
-                        translatedSentences.push(translated);
+                    // Split text based on translation mode
+            if (translationMode === 'sentence') {
+                // Preserve original paragraph structure
+                const originalParagraphs = textToTranslate.split(/\n\s*\n/);
+                const translatedParagraphs = [];
+                sentenceMappings = []; // Clear previous mappings
+                let mappingIndex = 0;
+                
+                for (const paragraph of originalParagraphs) {
+                    if (paragraph.trim()) {
+                        // Normalize paragraph text
+                        const normalizedParagraph = paragraph.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
                         
-                        // Store the mapping between original and translated sentences
-                        sentenceMappings.push({
-                            original: sentence,
-                            translated: translated,
-                            index: i
-                        });
+                        // Split paragraph into sentences
+                        const sentences = normalizedParagraph
+                            .split(/(?<=[.!?])\s+/)
+                            .map(s => s.trim())
+                            .filter(s => s.length > 0);
                         
-                        console.log(`Translated sentence ${i + 1}:`, translated.substring(0, 50) + '...');
-                    } catch (error) {
-                        console.error(`Error translating sentence ${i + 1}:`, error);
-                        translatedSentences.push(sentence); // Keep original if translation fails
+                        console.log(`Processing paragraph with ${sentences.length} sentences:`, sentences);
                         
-                        // Store mapping with original as both original and translated
-                        sentenceMappings.push({
-                            original: sentence,
-                            translated: sentence,
-                            index: i
-                        });
+                        const translatedSentences = [];
+                        
+                        for (const sentence of sentences) {
+                            if (sentence) {
+                                console.log(`Translating sentence:`, sentence.substring(0, 50) + '...');
+                                try {
+                                    const translated = await translateText(sentence, sourceLanguage, targetLanguage);
+                                    translatedSentences.push(translated);
+                                    
+                                    // Store the mapping between original and translated sentences
+                                    const mapping = {
+                                        original: sentence,
+                                        translated: translated,
+                                        index: mappingIndex++
+                                    };
+                                    sentenceMappings.push(mapping);
+                                    console.log(`Stored mapping:`, mapping);
+                                } catch (error) {
+                                    console.error(`Error translating sentence:`, error);
+                                    translatedSentences.push(sentence); // Keep original if translation fails
+                                    
+                                    // Store mapping with original as both original and translated
+                                    const mapping = {
+                                        original: sentence,
+                                        translated: sentence,
+                                        index: mappingIndex++
+                                    };
+                                    sentenceMappings.push(mapping);
+                                    console.log(`Stored mapping (fallback):`, mapping);
+                                }
+                            }
+                        }
+                        
+                        // Join sentences in paragraph with spaces
+                        translatedParagraphs.push(translatedSentences.join(' '));
+                    } else {
+                        // Empty paragraph - preserve it
+                        translatedParagraphs.push('');
                     }
                 }
-            }
-            
-            textToTranslate = translatedSentences.join(' ');
+                
+                // Join paragraphs with double line breaks to preserve structure
+                textToTranslate = translatedParagraphs.join('\n\n');
         } else if (translationMode === 'paragraph') {
             const paragraphs = textToTranslate.split(/\n\s*\n/).filter(p => p.trim());
             const translatedParagraphs = [];
@@ -1128,6 +1142,7 @@ async function translateContent() {
         }
         
         console.log('Translation completed:', textToTranslate.substring(0, 100) + '...');
+        console.log('Final sentence mappings:', sentenceMappings);
         
         translatedTextElement.innerHTML = `<pre class="whitespace-pre-wrap">${textToTranslate}</pre>`;
         console.log('Updated translatedTextElement.innerHTML:', translatedTextElement.innerHTML.substring(0, 100) + '...');
@@ -1135,6 +1150,9 @@ async function translateContent() {
         
         // Setup text selection for translated text
         setupTextSelection();
+        
+        // Add debug button to show sentence mappings
+        addDebugButton();
         
     } catch (error) {
         console.error('Translation error:', error);
@@ -1212,92 +1230,139 @@ function setupTextSelection() {
     
     if (originalTextElement) {
         originalTextElement.addEventListener('click', handleTextClick);
-        originalTextElement.addEventListener('mouseup', handleTextSelection);
+        // Remove the mouseup event listener that was causing conflicts
+        // originalTextElement.addEventListener('mouseup', handleTextSelection);
     }
     
     if (translatedTextElement) {
         translatedTextElement.addEventListener('click', handleTextClick);
-        translatedTextElement.addEventListener('mouseup', handleTextSelection);
+        // Remove the mouseup event listener that was causing conflicts
+        // translatedTextElement.addEventListener('mouseup', handleTextSelection);
     }
 }
 
 // Handle text click to highlight sentence
 function handleTextClick(event) {
     const element = event.target;
+    
+    // Only handle clicks on PRE elements (the text containers)
     if (element.tagName === 'PRE') {
         const text = element.textContent;
-        const clickPosition = getClickPosition(element, event);
-        const sentence = findSentenceAtPosition(text, clickPosition);
         
-        if (sentence) {
-            // Clear any existing highlights first
-            clearHighlights();
+        // Use a much simpler approach: get the word under the cursor using selection
+        const clickX = event.clientX;
+        const clickY = event.clientY;
+        
+        // Create a range at the click position
+        const range = document.caretRangeFromPoint ? document.caretRangeFromPoint(clickX, clickY) : null;
+        
+        if (range) {
+            // Get the exact word under the cursor
+            let clickedWord = '';
             
-            // Highlight in the clicked element
-            highlightSentence(element, sentence);
-            
-            // Also highlight the same sentence in the other text element
-            const originalTextElement = document.getElementById('originalText');
-            const translatedTextElement = document.getElementById('translatedText');
-            
-            if (element === originalTextElement && translatedTextElement) {
-                // Find and highlight the same sentence in translated text
-                const translatedText = translatedTextElement.textContent;
-                const translatedSentence = findMatchingSentence(translatedText, sentence);
-                if (translatedSentence) {
-                    highlightSentence(translatedTextElement, translatedSentence);
+            try {
+                // Get the word under the cursor
+                const wordRange = range.cloneRange();
+                if (wordRange.expand) {
+                    wordRange.expand('word');
+                    clickedWord = wordRange.toString().trim();
+                } else {
+                    // Fallback: manually find word boundaries
+                    const text = range.startContainer.textContent;
+                    const pos = range.startOffset;
+                    
+                    // Find word start
+                    let start = pos;
+                    while (start > 0 && /\w/.test(text[start - 1])) {
+                        start--;
+                    }
+                    
+                    // Find word end
+                    let end = pos;
+                    while (end < text.length && /\w/.test(text[end])) {
+                        end++;
+                    }
+                    
+                    clickedWord = text.substring(start, end).trim();
                 }
-            } else if (element === translatedTextElement && originalTextElement) {
-                // Find and highlight the same sentence in original text
-                const originalText = originalTextElement.textContent;
-                const originalSentence = findMatchingSentence(originalText, sentence);
-                if (originalSentence) {
-                    highlightSentence(originalTextElement, originalSentence);
-                }
+            } catch (error) {
+                console.log('Error getting word:', error);
+                // Fallback: get a few characters around the click position
+                const text = range.startContainer.textContent;
+                const pos = range.startOffset;
+                const start = Math.max(0, pos - 5);
+                const end = Math.min(text.length, pos + 5);
+                clickedWord = text.substring(start, end).trim();
             }
             
-            userPreferences.selectedText = sentence;
-            saveUserPreferences();
+            console.log('Clicked word:', clickedWord);
+            
+            // Use a much simpler approach: find the sentence by getting surrounding text
+            const sentence = findSentenceByContext(text, clickedWord, range);
+            
+            if (sentence && sentence.trim().length > 0) {
+                console.log('Found sentence to highlight:', sentence);
+                
+                // Clear any existing highlights first
+                clearHighlights();
+                
+                // Highlight in the clicked element
+                highlightSentence(element, sentence);
+                
+                // Also highlight the same sentence in the other text element
+                const originalTextElement = document.getElementById('originalText');
+                const translatedTextElement = document.getElementById('translatedText');
+                
+                console.log('=== CROSS-LANGUAGE HIGHLIGHTING ATTEMPT ===');
+                console.log('Element:', element);
+                console.log('originalTextElement:', originalTextElement);
+                console.log('translatedTextElement:', translatedTextElement);
+                console.log('Available sentence mappings:', sentenceMappings.length);
+                
+                // Check if we're clicking in the original text and need to highlight translated text
+                if (element.id === 'originalText' || element.closest('#originalText')) {
+                    console.log('Element is originalTextElement, looking for translation');
+                    
+                    // Find and highlight the same sentence in translated text
+                    const translatedText = translatedTextElement.textContent;
+                    console.log('Looking for matching sentence in translated text:', translatedText.substring(0, 100));
+                    const translatedSentence = findMatchingSentence(translatedText, sentence);
+                    if (translatedSentence) {
+                        console.log('Found matching translated sentence:', translatedSentence);
+                        highlightSentence(translatedTextElement, translatedSentence);
+                    } else {
+                        console.log('No matching translated sentence found');
+                    }
+                } else if (element.id === 'translatedText' || element.closest('#translatedText')) {
+                    console.log('Element is translatedTextElement, looking for original');
+                    
+                    // Find and highlight the same sentence in original text
+                    const originalText = originalTextElement.textContent;
+                    console.log('Looking for matching sentence in original text:', originalText.substring(0, 100));
+                    const originalSentence = findMatchingSentence(originalText, sentence);
+                    if (originalSentence) {
+                        console.log('Found matching original sentence:', originalSentence);
+                        highlightSentence(originalTextElement, originalSentence);
+                    } else {
+                        console.log('No matching original sentence found');
+                    }
+                } else {
+                    console.log('=== NO CROSS-LANGUAGE HIGHLIGHTING ===');
+                    console.log('Element id:', element.id);
+                    console.log('originalTextElement exists:', !!originalTextElement);
+                    console.log('translatedTextElement exists:', !!translatedTextElement);
+                }
+                
+                userPreferences.selectedText = sentence;
+                saveUserPreferences();
+            }
         }
     }
 }
 
-// Handle text selection
-function handleTextSelection() {
-    const selection = window.getSelection();
-    if (selection.toString().trim()) {
-        const range = selection.getRangeAt(0);
-        const selectedText = selection.toString();
-        
-        // Create a container for the highlighted text and translation button
-        const container = document.createElement('span');
-        container.style.display = 'inline-block';
-        container.style.position = 'relative';
-        
-        // Create the highlighted text span
-        const span = document.createElement('span');
-        span.style.backgroundColor = 'yellow';
-        span.style.cursor = 'pointer';
-        span.textContent = selectedText;
-        
-        // Create the translation button
-        const translateBtn = document.createElement('button');
-        translateBtn.textContent = 'Translate';
-        translateBtn.className = 'ml-2 px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600';
-        translateBtn.onclick = (e) => {
-            e.stopPropagation();
-            translateSelection(selectedText);
-        };
-        
-        // Add both elements to container
-        container.appendChild(span);
-        container.appendChild(translateBtn);
-        
-        range.deleteContents();
-        range.insertNode(container);
-        selection.removeAllRanges();
-    }
-}
+// Handle text selection (removed from translation page to prevent conflicts)
+// This function was causing fragmented highlighting issues
+// Text selection highlighting is now handled only in the drills section
 
 // Get click position in text
 function getClickPosition(element, event) {
@@ -1315,36 +1380,74 @@ function getClickPosition(element, event) {
     return { line, char };
 }
 
-// Find sentence at position
-function findSentenceAtPosition(text, position) {
-    // Normalize text and split into sentences using the same logic as translation
-    const normalizedText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-    const sentences = normalizedText
+// Find sentence by context around the clicked word
+function findSentenceByContext(text, clickedWord, range) {
+    console.log('findSentenceByContext called with:', { text: text.substring(0, 100), clickedWord });
+    
+    // Get some context around the clicked word
+    const contextStart = Math.max(0, range.startOffset - 30);
+    const contextEnd = Math.min(text.length, range.startOffset + 30);
+    const context = text.substring(contextStart, contextEnd);
+    
+    console.log('Context around clicked word:', context);
+    
+    // Split text into sentences
+    const sentences = text
         .split(/(?<=[.!?])\s+/)
         .map(s => s.trim())
         .filter(s => s.length > 0);
     
-    // Calculate approximate character position
-    const lineHeight = 20; // Approximate line height
-    const charWidth = 8; // Approximate character width
-    const approximateCharPosition = position.line * 80 + position.char; // 80 chars per line approximation
+    console.log('All sentences:', sentences);
     
-    // Find which sentence contains this character position
-    let currentPosition = 0;
+    // Find which sentence contains the clicked word and is closest to the context
+    let bestMatch = null;
+    let bestScore = 0;
+    
     for (const sentence of sentences) {
-        const sentenceLength = sentence.length + 1; // +1 for the space after sentence
-        if (approximateCharPosition >= currentPosition && approximateCharPosition < currentPosition + sentenceLength) {
-            return sentence.trim();
+        if (sentence.toLowerCase().includes(clickedWord.toLowerCase())) {
+            // Calculate how close this sentence is to the context
+            const sentenceIndex = text.indexOf(sentence);
+            const contextIndex = contextStart;
+            const distance = Math.abs(sentenceIndex - contextIndex);
+            
+            // Score based on distance (closer is better) and context overlap
+            let score = 1 / (1 + distance);
+            
+            // Bonus if the context appears in this sentence
+            if (sentence.includes(context) || context.includes(sentence)) {
+                score += 10;
+            }
+            
+            // Bonus if the sentence contains words from the context
+            const contextWords = context.toLowerCase().split(/\s+/);
+            const sentenceWords = sentence.toLowerCase().split(/\s+/);
+            const commonWords = contextWords.filter(word => sentenceWords.includes(word)).length;
+            score += commonWords;
+            
+            console.log(`Sentence: "${sentence}" - Distance: ${distance}, Score: ${score}`);
+            
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = sentence;
+            }
         }
-        currentPosition += sentenceLength;
     }
     
-    // If no exact match found, return the first sentence
+    if (bestMatch) {
+        console.log('Best match found:', bestMatch);
+        return bestMatch.trim();
+    }
+    
+    // Fallback: return the first sentence
+    console.log('No match found, returning first sentence:', sentences[0]);
     return sentences.length > 0 ? sentences[0].trim() : null;
 }
 
 // Find matching sentence in text (improved implementation)
 function findMatchingSentence(text, targetSentence) {
+    console.log('findMatchingSentence called with:', { text: text.substring(0, 100), targetSentence });
+    console.log('Available sentence mappings:', sentenceMappings);
+    
     // First, try to use stored sentence mappings if available
     if (sentenceMappings.length > 0) {
         // Find the mapping that contains the target sentence
@@ -1353,11 +1456,51 @@ function findMatchingSentence(text, targetSentence) {
         );
         
         if (mapping) {
+            console.log('Found exact mapping:', mapping);
             // Return the corresponding sentence in the other language
             if (mapping.original === targetSentence) {
+                console.log('Returning translated sentence:', mapping.translated);
                 return mapping.translated;
             } else {
+                console.log('Returning original sentence:', mapping.original);
                 return mapping.original;
+            }
+        } else {
+            console.log('No exact mapping found for:', targetSentence);
+            
+            // Try to find a partial match by checking if the target sentence is contained in any mapping
+            for (const mapping of sentenceMappings) {
+                if (mapping.original.includes(targetSentence) || targetSentence.includes(mapping.original) ||
+                    mapping.translated.includes(targetSentence) || targetSentence.includes(mapping.translated)) {
+                    console.log('Found partial mapping:', mapping);
+                    if (mapping.original === targetSentence || mapping.original.includes(targetSentence)) {
+                        return mapping.translated;
+                    } else {
+                        return mapping.original;
+                    }
+                }
+            }
+            
+            // Try to find a match by sentence index (if we can determine which sentence this is)
+            const normalizedText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+            const sentences = normalizedText
+                .split(/(?<=[.!?])\s+/)
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+            
+            // Find which sentence index the target sentence is in the current text
+            const targetIndex = sentences.findIndex(s => s === targetSentence);
+            if (targetIndex !== -1 && targetIndex < sentenceMappings.length) {
+                console.log('Found sentence by index:', targetIndex);
+                const mapping = sentenceMappings[targetIndex];
+                if (mapping) {
+                    // Return the corresponding sentence in the other language
+                    if (mapping.original === targetSentence) {
+                        return mapping.translated;
+                    } else {
+                        return mapping.original;
+                    }
+                }
             }
         }
     }
@@ -1368,6 +1511,8 @@ function findMatchingSentence(text, targetSentence) {
         .split(/(?<=[.!?])\s+/)
         .map(s => s.trim())
         .filter(s => s.length > 0);
+    
+    console.log('Fallback sentences:', sentences);
     
     // Find the sentence that best matches the target sentence
     let bestMatch = null;
@@ -1391,21 +1536,38 @@ function findMatchingSentence(text, targetSentence) {
         }
     }
     
+    console.log('Best fallback match:', bestMatch);
     return bestMatch;
 }
 
 // Highlight sentence in element
 function highlightSentence(element, sentence) {
     const text = element.textContent;
-    const highlightedText = text.replace(
-        new RegExp(`(${sentence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'g'),
-        '<span class="bg-yellow-200 text-yellow-800 px-1 rounded">$1</span>'
-    );
-    element.innerHTML = highlightedText;
+    
+    // Find the exact position of the sentence in the text
+    const sentenceIndex = text.indexOf(sentence);
+    
+    if (sentenceIndex !== -1) {
+        // Create highlighted version by splitting at the sentence boundaries
+        const before = text.substring(0, sentenceIndex);
+        const after = text.substring(sentenceIndex + sentence.length);
+        
+        element.innerHTML = `<pre class="whitespace-pre-wrap">${before}<span class="bg-yellow-300 text-yellow-900 px-2 py-1 rounded font-medium">${sentence}</span>${after}</pre>`;
+    } else {
+        // Fallback: if exact match not found, try regex replacement
+        const highlightedText = text.replace(
+            new RegExp(`(${sentence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'g'),
+            '<span class="bg-yellow-300 text-yellow-900 px-2 py-1 rounded font-medium">$1</span>'
+        );
+        element.innerHTML = `<pre class="whitespace-pre-wrap">${highlightedText}</pre>`;
+    }
 }
 
 // Clear all highlights
 function clearHighlights() {
+    console.log('clearHighlights called');
+    console.log('Previous sentence mappings count:', sentenceMappings.length);
+    
     const originalTextElement = document.getElementById('originalText');
     const translatedTextElement = document.getElementById('translatedText');
     
@@ -1414,9 +1576,14 @@ function clearHighlights() {
     }
     
     if (translatedTextElement && translatedTextElement.textContent) {
+        // Get the clean text content without any HTML
         const text = translatedTextElement.textContent;
         translatedTextElement.innerHTML = `<pre class="whitespace-pre-wrap">${text}</pre>`;
     }
+    
+    // Don't clear sentence mappings - we need them for cross-language highlighting!
+    // sentenceMappings = [];
+    console.log('Sentence mappings preserved for cross-language highlighting');
 }
 
 // Update drills section
@@ -2021,6 +2188,54 @@ function clearTranslationPopup() {
         currentTranslationPopup.remove();
         currentTranslationPopup = null;
     }
+}
+
+// Debug function to show sentence mappings
+function addDebugButton() {
+    // Remove any existing debug button
+    const existingButton = document.getElementById('debugMappingsBtn');
+    if (existingButton) {
+        existingButton.remove();
+    }
+    
+    // Create debug button
+    const debugButton = document.createElement('button');
+    debugButton.id = 'debugMappingsBtn';
+    debugButton.textContent = 'Debug Mappings';
+    debugButton.className = 'px-4 py-2 bg-gray-500 text-white rounded-md ml-4';
+    debugButton.onclick = showSentenceMappings;
+    
+    // Add button after the translate button
+    const translateBtn = document.getElementById('translateBtn');
+    if (translateBtn && translateBtn.parentNode) {
+        translateBtn.parentNode.appendChild(debugButton);
+    }
+}
+
+function showSentenceMappings() {
+    console.log('=== SENTENCE MAPPINGS DEBUG ===');
+    console.log('Total mappings:', sentenceMappings.length);
+    
+    sentenceMappings.forEach((mapping, index) => {
+        console.log(`Mapping ${index + 1}:`);
+        console.log(`  Original: "${mapping.original}"`);
+        console.log(`  Translated: "${mapping.translated}"`);
+        console.log(`  Index: ${mapping.index}`);
+        console.log('---');
+    });
+    
+    // Also show the current text content
+    const originalTextElement = document.getElementById('originalText');
+    const translatedTextElement = document.getElementById('translatedText');
+    
+    if (originalTextElement) {
+        console.log('Current original text:', originalTextElement.textContent);
+    }
+    if (translatedTextElement) {
+        console.log('Current translated text:', translatedTextElement.textContent);
+    }
+    
+    alert(`Found ${sentenceMappings.length} sentence mappings. Check console for details.`);
 }
 
 function clearHighlights() {
@@ -2689,4 +2904,4 @@ function saveRecording() {
     
     // Show message
     showMessage('contentMessage', 'Recording saved successfully!', 'success');
-} 
+}
