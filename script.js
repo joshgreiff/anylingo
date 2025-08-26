@@ -1222,8 +1222,8 @@ function setupTextSelection() {
 function handleTextClick(event) {
     const element = event.target;
     
-    // Only handle clicks on PRE elements (the text containers)
-    if (element.tagName === 'PRE') {
+    // Handle clicks on PRE elements or their parent containers
+    if (element.tagName === 'PRE' || element.id === 'originalText' || element.id === 'translatedText') {
         const text = element.textContent;
         
         // Get the clicked word using a simpler approach
@@ -1275,11 +1275,11 @@ function handleTextClick(event) {
             const sentence = findSentenceByContext(text, clickedWord, range);
             
             if (sentence && sentence.trim().length > 0) {
-                // Clear any existing highlights first
-                clearHighlights();
+                // Get the actual text container (PRE element) for highlighting
+                const textContainer = element.tagName === 'PRE' ? element : element.querySelector('pre');
                 
                 // Highlight in the clicked element
-                highlightSentence(element, sentence);
+                highlightSentence(textContainer, sentence);
                 
                 // Also highlight the same sentence in the other text element
                 const originalTextElement = document.getElementById('originalText');
@@ -1291,14 +1291,16 @@ function handleTextClick(event) {
                     const translatedText = translatedTextElement.textContent;
                     const translatedSentence = findMatchingSentence(translatedText, sentence);
                     if (translatedSentence) {
-                        highlightSentence(translatedTextElement, translatedSentence);
+                        const translatedTextContainer = translatedTextElement.querySelector('pre');
+                        highlightSentence(translatedTextContainer, translatedSentence);
                     }
                 } else if (element.id === 'translatedText' || element.closest('#translatedText')) {
                     // Find and highlight the same sentence in original text
                     const originalText = originalTextElement.textContent;
                     const originalSentence = findMatchingSentence(originalText, sentence);
                     if (originalSentence) {
-                        highlightSentence(originalTextElement, originalSentence);
+                        const originalTextContainer = originalTextElement.querySelector('pre');
+                        highlightSentence(originalTextContainer, originalSentence);
                     }
                 }
                 
@@ -1448,20 +1450,21 @@ function findMatchingSentence(text, targetSentence) {
 
 // Highlight sentence in element
 function highlightSentence(element, sentence) {
-    const text = element.textContent;
+    // First, clear any existing highlights by getting the clean text
+    const cleanText = element.textContent.replace(/<[^>]*>/g, '');
     
-    // Find the exact position of the sentence in the text
-    const sentenceIndex = text.indexOf(sentence);
+    // Find the exact position of the sentence in the clean text
+    const sentenceIndex = cleanText.indexOf(sentence);
     
     if (sentenceIndex !== -1) {
         // Create highlighted version by splitting at the sentence boundaries
-        const before = text.substring(0, sentenceIndex);
-        const after = text.substring(sentenceIndex + sentence.length);
+        const before = cleanText.substring(0, sentenceIndex);
+        const after = cleanText.substring(sentenceIndex + sentence.length);
         
         element.innerHTML = `<pre class="whitespace-pre-wrap">${before}<span class="bg-yellow-300 text-yellow-900 px-2 py-1 rounded font-medium">${sentence}</span>${after}</pre>`;
     } else {
         // Fallback: if exact match not found, try regex replacement
-        const highlightedText = text.replace(
+        const highlightedText = cleanText.replace(
             new RegExp(`(${sentence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'g'),
             '<span class="bg-yellow-300 text-yellow-900 px-2 py-1 rounded font-medium">$1</span>'
         );
