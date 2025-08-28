@@ -18,17 +18,27 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Simple test endpoint (no database required)
+app.get('/api/test', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        message: 'AnyLingo API is running',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
+
+// Health check
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'OK', message: 'AnyLingo API is running' });
+});
+
 // Routes
 app.use('/api/auth', require('./src/routes/auth'));
 app.use('/api/users', require('./src/routes/users'));
 app.use('/api/lessons', require('./src/routes/lessons'));
 app.use('/api/payments', require('./src/routes/payments'));
 app.use('/api/subscriptions', require('./src/routes/subscriptions'));
-
-// Health check
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK', message: 'AnyLingo API is running' });
-});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -47,7 +57,14 @@ app.use('*', (req, res) => {
 // Connect to database and start server
 const startServer = async () => {
     try {
-        await connectDB();
+        // Try to connect to database, but don't fail if it doesn't work
+        try {
+            await connectDB();
+            console.log('✅ Connected to MongoDB');
+        } catch (dbError) {
+            console.error('⚠️ Database connection failed:', dbError.message);
+            console.log('🔄 Starting server without database connection...');
+        }
         
         app.listen(PORT, () => {
             console.log(`🚀 AnyLingo API server running on port ${PORT}`);
