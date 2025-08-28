@@ -1,0 +1,206 @@
+const { Client, Environment } = require('square');
+
+class SquareService {
+    constructor() {
+        this.client = new Client({
+            accessToken: process.env.SQUARE_ACCESS_TOKEN,
+            environment: process.env.SQUARE_ENVIRONMENT === 'production' 
+                ? Environment.Production 
+                : Environment.Sandbox
+        });
+    }
+
+    // Create a customer
+    async createCustomer(user) {
+        try {
+            const response = await this.client.customersApi.createCustomer({
+                givenName: user.firstName,
+                familyName: user.lastName,
+                emailAddress: user.email,
+                note: `AnyLingo user: ${user._id}`
+            });
+
+            return response.result.customer;
+        } catch (error) {
+            console.error('Error creating Square customer:', error);
+            throw new Error('Failed to create customer');
+        }
+    }
+
+    // Create a subscription
+    async createSubscription(customerId, planType = 'monthly') {
+        try {
+            const catalogResponse = await this.client.catalogApi.searchCatalogItems({
+                productTypes: ['SUBSCRIPTION_PLAN']
+            });
+
+            // Find the appropriate subscription plan
+            const plans = catalogResponse.result.items || [];
+            const plan = plans.find(item => 
+                item.itemData?.name?.toLowerCase().includes(planType)
+            );
+
+            if (!plan) {
+                throw new Error(`Subscription plan for ${planType} not found`);
+            }
+
+            const subscriptionResponse = await this.client.subscriptionsApi.createSubscription({
+                locationId: process.env.SQUARE_LOCATION_ID,
+                planId: plan.id,
+                customerId: customerId,
+                startDate: new Date().toISOString().split('T')[0],
+                cardId: null, // Will be added later via webhook or customer action
+                timezone: 'UTC'
+            });
+
+            return subscriptionResponse.result.subscription;
+        } catch (error) {
+            console.error('Error creating Square subscription:', error);
+            throw new Error('Failed to create subscription');
+        }
+    }
+
+    // Cancel a subscription
+    async cancelSubscription(subscriptionId) {
+        try {
+            const response = await this.client.subscriptionsApi.cancelSubscription(subscriptionId);
+            return response.result.subscription;
+        } catch (error) {
+            console.error('Error canceling Square subscription:', error);
+            throw new Error('Failed to cancel subscription');
+        }
+    }
+
+    // Get subscription details
+    async getSubscription(subscriptionId) {
+        try {
+            const response = await this.client.subscriptionsApi.retrieveSubscription(subscriptionId);
+            return response.result.subscription;
+        } catch (error) {
+            console.error('Error retrieving Square subscription:', error);
+            throw new Error('Failed to retrieve subscription');
+        }
+    }
+
+    // Create a payment
+    async createPayment(amount, currency = 'USD', sourceId, customerId = null) {
+        try {
+            const paymentRequest = {
+                sourceId: sourceId,
+                amountMoney: {
+                    amount: Math.round(amount * 100), // Convert to cents
+                    currency: currency
+                },
+                locationId: process.env.SQUARE_LOCATION_ID
+            };
+
+            if (customerId) {
+                paymentRequest.customerId = customerId;
+            }
+
+            const response = await this.client.paymentsApi.createPayment(paymentRequest);
+            return response.result.payment;
+        } catch (error) {
+            console.error('Error creating Square payment:', error);
+            throw new Error('Failed to create payment');
+        }
+    }
+
+    // Get customer details
+    async getCustomer(customerId) {
+        try {
+            const response = await this.client.customersApi.retrieveCustomer(customerId);
+            return response.result.customer;
+        } catch (error) {
+            console.error('Error retrieving Square customer:', error);
+            throw new Error('Failed to retrieve customer');
+        }
+    }
+
+    // Update customer
+    async updateCustomer(customerId, updates) {
+        try {
+            const response = await this.client.customersApi.updateCustomer(customerId, updates);
+            return response.result.customer;
+        } catch (error) {
+            console.error('Error updating Square customer:', error);
+            throw new Error('Failed to update customer');
+        }
+    }
+
+    // Create a card for a customer
+    async createCard(customerId, cardToken) {
+        try {
+            const response = await this.client.cardsApi.createCard({
+                card: {
+                    customerId: customerId,
+                    sourceId: cardToken
+                }
+            });
+
+            return response.result.card;
+        } catch (error) {
+            console.error('Error creating Square card:', error);
+            throw new Error('Failed to create card');
+        }
+    }
+
+    // Get subscription plans
+    async getSubscriptionPlans() {
+        try {
+            const response = await this.client.catalogApi.searchCatalogItems({
+                productTypes: ['SUBSCRIPTION_PLAN']
+            });
+
+            return response.result.items || [];
+        } catch (error) {
+            console.error('Error retrieving Square subscription plans:', error);
+            throw new Error('Failed to retrieve subscription plans');
+        }
+    }
+
+    // Process webhook events
+    async processWebhook(event) {
+        try {
+            const { type, data } = event;
+
+            switch (type) {
+                case 'subscription.updated':
+                    return await this.handleSubscriptionUpdate(data);
+                case 'subscription.canceled':
+                    return await this.handleSubscriptionCancel(data);
+                case 'payment.updated':
+                    return await this.handlePaymentUpdate(data);
+                default:
+                    console.log(`Unhandled webhook event type: ${type}`);
+                    return null;
+            }
+        } catch (error) {
+            console.error('Error processing webhook:', error);
+            throw error;
+        }
+    }
+
+    // Handle subscription updates
+    async handleSubscriptionUpdate(data) {
+        // This would update the user's subscription status in your database
+        console.log('Subscription updated:', data);
+        return data;
+    }
+
+    // Handle subscription cancellations
+    async handleSubscriptionCancel(data) {
+        // This would update the user's subscription status in your database
+        console.log('Subscription canceled:', data);
+        return data;
+    }
+
+    // Handle payment updates
+    async handlePaymentUpdate(data) {
+        // This would update payment status in your database
+        console.log('Payment updated:', data);
+        return data;
+    }
+}
+
+module.exports = new SquareService(); 

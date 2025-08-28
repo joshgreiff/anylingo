@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnyLingo - Language Learning Application</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="apple-touch-icon" href="favicon.svg">
+    
+    <!-- Stylesheets -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="header p-4 shadow-md">
+        <div class="container mx-auto flex flex-wrap items-center justify-between">
+            <div class="flex items-center">
+                <h1 class="text-2xl font-bold text-white">AnyLingo</h1>
+            </div>
+            
+            <div class="flex flex-wrap items-center space-x-2 md:space-x-4 mt-2 md:mt-0">
+                <button id="createLessonBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow transition-colors">
+                    Create a New Lesson
+                </button>
+                
+                <button id="contentBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow transition-colors">
+                    Content
+                </button>
+                
+                <button id="readAloudBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow transition-colors">
+                    ReadAloud
+                </button>
+                
+                <button id="translateBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow transition-colors">
+                    Translation
+                </button>
+                
+                <button id="drillsBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow transition-colors">
+                    Drill Exercises
+                </button>
+                
+                <button id="recordBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow transition-colors">
+                    Record
+                </button>
+
+                <!-- User Menu -->
+                <div class="relative">
+                    <button id="userMenuBtn" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md shadow transition-colors">
+                        <span id="userName">User</span> ▼
+                    </button>
+                    <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50">
+                        <a href="#" id="profileLink" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Profile</a>
+                        <a href="#" id="subscriptionLink" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Subscription</a>
+                        <hr class="my-1">
+                        <a href="#" id="logoutBtn" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">Logout</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto p-4 mt-8">
+        <!-- Home/Welcome Section -->
+        <section id="home" class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold mb-6 text-center">Welcome to AnyLingo</h2>
+            <p class="text-center mb-6">Develop fluency in multiple foreign languages</p>
+            
+            <div id="statusMessage" class="mb-6 p-4 rounded-md bg-green-100 text-green-700 text-center">
+                AnyLingo is ready to use! Click on any of the buttons above to get started.
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+                <div class="border p-4 rounded-md shadow-sm hover:shadow-md transition-shadow bg-blue-50">
+                    <h3 class="text-xl font-semibold mb-2 text-blue-700">Create Lessons</h3>
+                    <p class="text-gray-600 mb-4">
+                        Create new language lessons by pasting text from any source. AnyLingo preserves the original text formatting.
+                    </p>
+                    <button class="text-blue-600 hover:text-blue-800" onclick="showSection('createLesson')">Create a lesson →</button>
+                </div>
+                
+                <div class="border p-4 rounded-md shadow-sm hover:shadow-md transition-shadow bg-green-50">
+                    <h3 class="text-xl font-semibold mb-2 text-green-700">Manage Content</h3>
+                    <p class="text-gray-600 mb-4">
+                        Access all your saved lessons in the Content folder. View, edit, or delete your lessons.
+                    </p>
+                    <button class="text-green-600 hover:text-green-800" onclick="showSection('content')">View content →</button>
+                </div>
+                
+                <div class="border p-4 rounded-md shadow-sm hover:shadow-md transition-shadow bg-blue-50">
+                    <h3 class="text-xl font-semibold mb-2 text-blue-700">ReadAloud</h3>
+                    <p class="text-gray-600 mb-4">
+                        Listen to your lessons with text-to-speech technology. Control voice, speed, and playback options.
+                    </p>
+                    <button class="text-blue-600 hover:text-blue-800" onclick="showSection('readAloud')">Use ReadAloud →</button>
+                </div>
+                
+                <div class="border p-4 rounded-md shadow-sm hover:shadow-md transition-shadow bg-green-50">
+                    <h3 class="text-xl font-semibold mb-2 text-green-700">Translation</h3>
+                    <p class="text-gray-600 mb-4">
+                        Translate your lessons between multiple languages. Choose to translate sentences, paragraphs, or entire lessons.
+                    </p>
+                    <button class="text-green-600 hover:text-green-800" onclick="showSection('translate')">Translate content →</button>
+                </div>
+                
+                <div class="border p-4 rounded-md shadow-sm hover:shadow-md transition-shadow bg-blue-50">
+                    <h3 class="text-xl font-semibold mb-2 text-blue-700">Drill Exercises</h3>
+                    <p class="text-gray-600 mb-4">
+                        Practice with interactive drills designed to improve your language fluency and comprehension.
+                    </p>
+                    <button class="text-blue-600 hover:text-blue-800" onclick="showSection('drills')">Start drills →</button>
+                </div>
+                
+                <div class="border p-4 rounded-md shadow-sm hover:shadow-md transition-shadow bg-green-50">
+                    <h3 class="text-xl font-semibold mb-2 text-green-700">Recording</h3>
+                    <p class="text-gray-600 mb-4">
+                        Record yourself reading lessons aloud. Play back recordings to assess your pronunciation.
+                    </p>
+                    <button class="text-green-600 hover:text-green-800" onclick="showSection('record')">Record yourself →</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Create Lesson Section -->
+        <section id="createLesson" class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md hidden">
+            <h2 class="text-2xl font-bold mb-6">Create a New Lesson</h2>
+            
+            <form id="lessonForm" class="space-y-6">
+                <div>
+                    <label for="lessonTitle" class="block text-sm font-medium text-gray-700 mb-2">Lesson Title</label>
+                    <input type="text" id="lessonTitle" name="title" required 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label for="lessonContent" class="block text-sm font-medium text-gray-700 mb-2">Lesson Content</label>
+                    <textarea id="lessonContent" name="content" rows="10" required
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Paste your lesson content here..."></textarea>
+                </div>
+                
+                <div class="flex space-x-4">
+                    <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                        Save Lesson
+                    </button>
+                    <button type="button" onclick="showSection('home')" class="px-6 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Content Section -->
+        <section id="content" class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md hidden">
+            <h2 class="text-2xl font-bold mb-6">Content Folder</h2>
+            
+            <div class="mb-6">
+                <h3 class="text-xl font-semibold mb-4">Your Lessons</h3>
+                <button onclick="showSection('createLesson')" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                    + Create New Lesson
+                </button>
+            </div>
+            
+            <div id="lessonsList" class="space-y-4">
+                <!-- Lessons will be loaded here -->
+                <div class="p-4 border rounded-md bg-gray-50">
+                    <p class="text-gray-500 text-center">No lessons found. Create a new lesson to get started.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ReadAloud Section -->
+        <section id="readAloud" class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md hidden">
+            <h2 class="text-2xl font-bold mb-6">ReadAloud</h2>
+            
+            <div id="readAloudContent" class="space-y-6">
+                <div class="p-4 border rounded-md bg-gray-50">
+                    <p class="text-gray-500 text-center">No lesson loaded</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Detected language:</label>
+                        <span id="detectedLanguage" class="text-gray-600">Not detected</span>
+                    </div>
+                    
+                    <div>
+                        <label for="voiceSelect" class="block text-sm font-medium text-gray-700 mb-2">Select Voice</label>
+                        <select id="voiceSelect" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <option>Loading voices...</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label for="speechRate" class="block text-sm font-medium text-gray-700 mb-2">Speech Rate: <span id="rateValue">0.7</span>x</label>
+                        <input type="range" id="speechRate" min="0.5" max="2" step="0.1" value="0.7" 
+                               class="w-full">
+                    </div>
+                    
+                    <div class="flex space-x-2">
+                        <button id="startBtn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Start</button>
+                        <button id="pauseBtn" class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700">Pause</button>
+                        <button id="continueBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Continue</button>
+                        <button id="stopBtn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Stop</button>
+                        <button id="loopBtn" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">Loop OFF</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Translation Section -->
+        <section id="translate" class="max-w-6xl mx-auto bg-white p-8 rounded-lg shadow-md hidden">
+            <h2 class="text-2xl font-bold mb-6">Translation</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Original Text</h3>
+                    <div id="originalText" class="border p-4 rounded-md bg-gray-50 h-96 overflow-y-auto">
+                        <p class="text-gray-500">No lesson content available</p>
+                    </div>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Translated Text</h3>
+                    <div id="translatedText" class="border p-4 rounded-md bg-gray-50 h-96 overflow-y-auto">
+                        <p class="text-gray-500">Translation will appear here</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex flex-wrap gap-4">
+                <div>
+                    <label for="sourceLanguage" class="block text-sm font-medium text-gray-700 mb-2">Source Language</label>
+                    <select id="sourceLanguage" class="px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="auto">Auto-detect</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="targetLanguage" class="block text-sm font-medium text-gray-700 mb-2">Target Language</label>
+                    <select id="targetLanguage" class="px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                        <option value="it">Italian</option>
+                        <option value="pt">Portuguese</option>
+                        <option value="ru">Russian</option>
+                        <option value="ja">Japanese</option>
+                        <option value="ko">Korean</option>
+                        <option value="zh">Chinese</option>
+                        <option value="ar">Arabic</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="translationMode" class="block text-sm font-medium text-gray-700 mb-2">Translation Mode</label>
+                    <select id="translationMode" class="px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="sentence">Sentence</option>
+                        <option value="paragraph">Paragraph</option>
+                        <option value="entire">Entire Lesson</option>
+                    </select>
+                </div>
+                
+                <div class="flex items-end">
+                    <button id="translateBtn" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        Translate
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Drill Exercises Section -->
+        <section id="drills" class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md hidden">
+            <h2 class="text-2xl font-bold mb-6">Drill Exercises</h2>
+            
+            <div id="drillsContent" class="space-y-6">
+                <div class="p-4 border rounded-md bg-gray-50">
+                    <p class="text-gray-500 text-center">No lesson loaded</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="border p-4 rounded-md">
+                        <h3 class="text-lg font-semibold mb-2">Drill 1: Listen and Follow</h3>
+                        <p class="text-gray-600 mb-4">Listen to the lesson being read aloud and follow along with the text. This helps with comprehension and pronunciation.</p>
+                        <button class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Start Listening</button>
+                    </div>
+                    
+                    <div class="border p-4 rounded-md">
+                        <h3 class="text-lg font-semibold mb-2">Drill 2: Highlight and Translate</h3>
+                        <p class="text-gray-600 mb-4">Highlight words or phrases you don't understand, then translate them to your native language.</p>
+                        <div class="space-x-2">
+                            <button class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Highlight Text</button>
+                            <button class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">Clear Highlights</button>
+                        </div>
+                    </div>
+                    
+                    <div class="border p-4 rounded-md">
+                        <h3 class="text-lg font-semibold mb-2">Drill 3: Read and Speak Simultaneously</h3>
+                        <p class="text-gray-600 mb-4">Read the text aloud at the same time as the audio plays. This helps develop fluency and natural rhythm.</p>
+                        <button class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">Start Reading Together</button>
+                    </div>
+                    
+                    <div class="border p-4 rounded-md">
+                        <h3 class="text-lg font-semibold mb-2">Drill 4: Record Yourself</h3>
+                        <p class="text-gray-600 mb-4">Record yourself reading the lesson, then compare your pronunciation with the original audio.</p>
+                        <div class="space-y-2">
+                            <button class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Start Recording</button>
+                            <button class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700">Stop Recording</button>
+                            <button class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Play Recording</button>
+                        </div>
+                    </div>
+                    
+                    <div class="border p-4 rounded-md">
+                        <h3 class="text-lg font-semibold mb-2">Drill 5: Develop Fluency</h3>
+                        <p class="text-gray-600 mb-4">Develop fluency and measure it quantitatively using the fluency measurement tool.</p>
+                        <button class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Open Fluency Measurement Tool</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Record Section -->
+        <section id="record" class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md hidden">
+            <h2 class="text-2xl font-bold mb-6">Record</h2>
+            
+            <div id="recordContent" class="space-y-6">
+                <div class="p-4 border rounded-md bg-gray-50">
+                    <p class="text-gray-500 text-center">No lesson loaded</p>
+                </div>
+                
+                <div class="flex space-x-2">
+                    <button class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Start Recording</button>
+                    <button class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700">Stop Recording</button>
+                    <button class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Play Recording</button>
+                    <button class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Save Recording</button>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Your Recordings</h3>
+                    <div class="p-4 border rounded-md bg-gray-50">
+                        <p class="text-gray-500 text-center">No recordings yet</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Scripts -->
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+    
+    <!-- Authentication Script -->
+    <script>
+        // Check authentication on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem('anylingo_token');
+            
+            if (!token) {
+                // Redirect to login if no token
+                window.location.href = '/landing/index.html';
+                return;
+            }
+
+            try {
+                // Verify token with backend
+                const response = await fetch('http://localhost:5000/api/auth/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    // Token is invalid, redirect to login
+                    localStorage.removeItem('anylingo_token');
+                    window.location.href = '/landing/index.html';
+                    return;
+                }
+
+                // Token is valid, load user data
+                const data = await response.json();
+                document.getElementById('userName').textContent = data.user.firstName || 'User';
+                
+            } catch (error) {
+                console.error('Auth check error:', error);
+                // On error, redirect to login
+                localStorage.removeItem('anylingo_token');
+                window.location.href = '/landing/index.html';
+            }
+        });
+
+        // User menu functionality
+        document.getElementById('userMenuBtn').addEventListener('click', () => {
+            const menu = document.getElementById('userMenu');
+            menu.classList.toggle('hidden');
+        });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#userMenuBtn')) {
+                document.getElementById('userMenu').classList.add('hidden');
+            }
+        });
+
+        // Logout functionality
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('anylingo_token');
+            window.location.href = '/landing/index.html';
+        });
+
+        // Profile link
+        document.getElementById('profileLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            // TODO: Implement profile page
+            alert('Profile page coming soon!');
+        });
+
+        // Subscription link
+        document.getElementById('subscriptionLink').addEventListener('click', (e) => {
+            e.preventDefault();
+            // TODO: Implement subscription management
+            alert('Subscription management coming soon!');
+        });
+    </script>
+</body>
+</html> 

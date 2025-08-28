@@ -10,6 +10,10 @@
       "use": "@vercel/static"
     },
     {
+      "src": "app/*.html",
+      "use": "@vercel/static"
+    },
+    {
       "src": "*.css",
       "use": "@vercel/static"
     },
@@ -18,11 +22,19 @@
       "use": "@vercel/static"
     },
     {
+      "src": "app/*.css",
+      "use": "@vercel/static"
+    },
+    {
       "src": "*.js",
       "use": "@vercel/static"
     },
     {
       "src": "landing/js/*.js",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "app/*.js",
       "use": "@vercel/static"
     },
     {
@@ -35,6 +47,24 @@
     }
   ],
   "routes": [
+    {
+      "src": "/app/(.*)",
+      "dest": "/app/$1"
+    },
+    {
+      "src": "/app/css/(.*)",
+      "dest": "/app/$1",
+      "headers": {
+        "Content-Type": "text/css"
+      }
+    },
+    {
+      "src": "/app/js/(.*)",
+      "dest": "/app/$1",
+      "headers": {
+        "Content-Type": "application/javascript"
+      }
+    },
     {
       "src": "/landing/(.*)",
       "dest": "/landing/$1"
