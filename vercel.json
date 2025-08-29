@@ -126,6 +126,20 @@
       }
     },
     {
+      "src": "/js/(.*)",
+      "dest": "/js/$1",
+      "headers": {
+        "Content-Type": "application/javascript"
+      }
+    },
+    {
+      "src": "/css/(.*)",
+      "dest": "/css/$1",
+      "headers": {
+        "Content-Type": "text/css"
+      }
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }
