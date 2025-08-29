@@ -6,17 +6,31 @@ const connectDB = require('./src/config/database');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(helmet());
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL || 'https://www.anylingo.net',
     credentials: true
 }));
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Database connection middleware
+let dbConnected = false;
+app.use(async (req, res, next) => {
+    if (!dbConnected) {
+        try {
+            await connectDB();
+            dbConnected = true;
+            console.log('✅ Connected to MongoDB');
+        } catch (error) {
+            console.error('⚠️ Database connection failed:', error.message);
+        }
+    }
+    next();
+});
 
 // Simple test endpoint (no database required)
 app.get('/api/test', (req, res) => {
@@ -24,13 +38,18 @@ app.get('/api/test', (req, res) => {
         status: 'OK', 
         message: 'AnyLingo API is running',
         timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'development'
+        environment: process.env.NODE_ENV || 'development',
+        database: dbConnected ? 'Connected' : 'Disconnected'
     });
 });
 
 // Health check
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK', message: 'AnyLingo API is running' });
+    res.json({ 
+        status: 'OK', 
+        message: 'AnyLingo API is running',
+        database: dbConnected ? 'Connected' : 'Disconnected'
+    });
 });
 
 // Routes
@@ -54,26 +73,5 @@ app.use('*', (req, res) => {
     res.status(404).json({ error: 'Route not found' });
 });
 
-// Connect to database and start server
-const startServer = async () => {
-    try {
-        // Try to connect to database, but don't fail if it doesn't work
-        try {
-            await connectDB();
-            console.log('✅ Connected to MongoDB');
-        } catch (dbError) {
-            console.error('⚠️ Database connection failed:', dbError.message);
-            console.log('🔄 Starting server without database connection...');
-        }
-        
-        app.listen(PORT, () => {
-            console.log(`🚀 AnyLingo API server running on port ${PORT}`);
-            console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-        });
-    } catch (error) {
-        console.error('Failed to start server:', error);
-        process.exit(1);
-    }
-};
-
-startServer(); 
+// For Vercel, export the app
+module.exports = app; 
