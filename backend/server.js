@@ -33,33 +33,12 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'AnyLingo API is running' });
 });
 
-// Test Square connection
-app.get('/api/square/test', async (req, res) => {
-    try {
-        const squareService = require('./src/services/squareService');
-        res.json({ 
-            status: 'OK', 
-            message: 'Square service loaded successfully',
-            environment: process.env.SQUARE_ENVIRONMENT
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            error: 'Square service error',
-            message: error.message 
-        });
-    }
-});
-
-// Routes with error handling
-try {
-    app.use('/api/auth', require('./src/routes/auth'));
-    app.use('/api/users', require('./src/routes/users'));
-    app.use('/api/lessons', require('./src/routes/lessons'));
-    app.use('/api/payments', require('./src/routes/payments'));
-    app.use('/api/subscriptions', require('./src/routes/subscriptions'));
-} catch (error) {
-    console.error('Error loading routes:', error);
-}
+// Routes
+app.use('/api/auth', require('./src/routes/auth'));
+app.use('/api/users', require('./src/routes/users'));
+app.use('/api/lessons', require('./src/routes/lessons'));
+app.use('/api/payments', require('./src/routes/payments'));
+app.use('/api/subscriptions', require('./src/routes/subscriptions'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

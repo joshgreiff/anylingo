@@ -1076,16 +1076,16 @@ async function translateContent() {
                     // Split paragraph into sentences
                     const sentences = normalizedParagraph
                         .split(/(?<=[.!?])\s+/)
-                        .map(s => s.trim())
-                        .filter(s => s.length > 0);
-                    
-                    const translatedSentences = [];
-                    
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+            
+            const translatedSentences = [];
+            
                     for (const sentence of sentences) {
-                        if (sentence) {
-                            try {
-                                const translated = await translateText(sentence, sourceLanguage, targetLanguage);
-                                translatedSentences.push(translated);
+                if (sentence) {
+                    try {
+                        const translated = await translateText(sentence, sourceLanguage, targetLanguage);
+                        translatedSentences.push(translated);
                                 
                                 // Store the mapping between original and translated sentences
                                 const mapping = {
@@ -1094,9 +1094,9 @@ async function translateContent() {
                                     index: mappingIndex++
                                 };
                                 sentenceMappings.push(mapping);
-                            } catch (error) {
+                    } catch (error) {
                                 console.error(`Error translating sentence:`, error);
-                                translatedSentences.push(sentence); // Keep original if translation fails
+                        translatedSentences.push(sentence); // Keep original if translation fails
                                 
                                 // Store mapping with original as both original and translated
                                 const mapping = {
@@ -1278,34 +1278,34 @@ function handleTextClick(event) {
                 // Get the actual text container (PRE element) for highlighting
                 const textContainer = element.tagName === 'PRE' ? element : element.querySelector('pre');
                 
-                // Highlight in the clicked element
+            // Highlight in the clicked element
                 highlightSentence(textContainer, sentence);
-                
-                // Also highlight the same sentence in the other text element
-                const originalTextElement = document.getElementById('originalText');
-                const translatedTextElement = document.getElementById('translatedText');
-                
+            
+            // Also highlight the same sentence in the other text element
+            const originalTextElement = document.getElementById('originalText');
+            const translatedTextElement = document.getElementById('translatedText');
+            
                 // Check if we're clicking in the original text and need to highlight translated text
                 if (element.id === 'originalText' || element.closest('#originalText')) {
-                    // Find and highlight the same sentence in translated text
-                    const translatedText = translatedTextElement.textContent;
-                    const translatedSentence = findMatchingSentence(translatedText, sentence);
-                    if (translatedSentence) {
+                // Find and highlight the same sentence in translated text
+                const translatedText = translatedTextElement.textContent;
+                const translatedSentence = findMatchingSentence(translatedText, sentence);
+                if (translatedSentence) {
                         const translatedTextContainer = translatedTextElement.querySelector('pre');
                         highlightSentence(translatedTextContainer, translatedSentence);
-                    }
+                }
                 } else if (element.id === 'translatedText' || element.closest('#translatedText')) {
-                    // Find and highlight the same sentence in original text
-                    const originalText = originalTextElement.textContent;
-                    const originalSentence = findMatchingSentence(originalText, sentence);
-                    if (originalSentence) {
+                // Find and highlight the same sentence in original text
+                const originalText = originalTextElement.textContent;
+                const originalSentence = findMatchingSentence(originalText, sentence);
+                if (originalSentence) {
                         const originalTextContainer = originalTextElement.querySelector('pre');
                         highlightSentence(originalTextContainer, originalSentence);
-                    }
                 }
-                
-                userPreferences.selectedText = sentence;
-                saveUserPreferences();
+            }
+            
+            userPreferences.selectedText = sentence;
+            saveUserPreferences();
             }
         }
     }
@@ -1465,9 +1465,9 @@ function highlightSentence(element, sentence) {
     } else {
         // Fallback: if exact match not found, try regex replacement
         const highlightedText = cleanText.replace(
-            new RegExp(`(${sentence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'g'),
+        new RegExp(`(${sentence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'g'),
             '<span class="bg-yellow-300 text-yellow-900 px-2 py-1 rounded font-medium">$1</span>'
-        );
+    );
         element.innerHTML = `<pre class="whitespace-pre-wrap">${highlightedText}</pre>`;
     }
 }
@@ -2752,4 +2752,4 @@ function saveRecording() {
     
     // Show message
     showMessage('contentMessage', 'Recording saved successfully!', 'success');
-}
+} 
