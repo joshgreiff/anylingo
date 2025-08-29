@@ -112,6 +112,55 @@ module.exports = async (req, res) => {
         return;
     }
     
+    // Database test endpoint
+    if (pathname === '/api/test-db') {
+        try {
+            console.log('Testing database connection...');
+            console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
+            console.log('MONGODB_URI preview:', process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 20) + '...' : 'Not set');
+            
+            if (!process.env.MONGODB_URI) {
+                res.json({ 
+                    status: 'ERROR', 
+                    message: 'MONGODB_URI not set',
+                    database: 'Not configured'
+                });
+                return;
+            }
+            
+            // Try to connect
+            await connectDB();
+            
+            if (dbConnected) {
+                // Try a simple database operation
+                const User = mongoose.model('User');
+                const count = await User.countDocuments();
+                
+                res.json({ 
+                    status: 'SUCCESS', 
+                    message: 'Database connected and working',
+                    database: 'Connected',
+                    userCount: count
+                });
+            } else {
+                res.json({ 
+                    status: 'ERROR', 
+                    message: 'Database connection failed',
+                    database: 'Failed to connect'
+                });
+            }
+        } catch (error) {
+            console.error('Database test error:', error);
+            res.json({ 
+                status: 'ERROR', 
+                message: 'Database test failed',
+                error: error.message,
+                database: 'Error'
+            });
+        }
+        return;
+    }
+    
     // Subscription plans
     if (pathname === '/api/subscriptions/plans') {
         res.json({
