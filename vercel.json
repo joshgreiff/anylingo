@@ -119,6 +119,13 @@
       }
     },
     {
+      "src": "/signup.html",
+      "dest": "/signup.html",
+      "headers": {
+        "Content-Type": "text/html"
+      }
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }
