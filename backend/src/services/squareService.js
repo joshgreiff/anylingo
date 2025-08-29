@@ -1,19 +1,19 @@
-const { Client, Environment } = require('square');
+const { SquareClient, SquareEnvironment } = require('square');
 
 class SquareService {
     constructor() {
-        this.client = new Client({
+        this.client = new SquareClient({
             accessToken: process.env.SQUARE_ACCESS_TOKEN,
             environment: process.env.SQUARE_ENVIRONMENT === 'production' 
-                ? Environment.Production 
-                : Environment.Sandbox
+                ? SquareEnvironment.Production 
+                : SquareEnvironment.Sandbox
         });
     }
 
     // Create a customer
     async createCustomer(user) {
         try {
-            const response = await this.client.customersApi.createCustomer({
+            const response = await this.client.customers.createCustomer({
                 givenName: user.firstName,
                 familyName: user.lastName,
                 emailAddress: user.email,
@@ -30,7 +30,7 @@ class SquareService {
     // Create a subscription
     async createSubscription(customerId, planType = 'monthly') {
         try {
-            const catalogResponse = await this.client.catalogApi.searchCatalogItems({
+            const catalogResponse = await this.client.catalog.searchCatalogItems({
                 productTypes: ['SUBSCRIPTION_PLAN']
             });
 
@@ -44,7 +44,7 @@ class SquareService {
                 throw new Error(`Subscription plan for ${planType} not found`);
             }
 
-            const subscriptionResponse = await this.client.subscriptionsApi.createSubscription({
+            const subscriptionResponse = await this.client.subscriptions.createSubscription({
                 locationId: process.env.SQUARE_LOCATION_ID,
                 planId: plan.id,
                 customerId: customerId,
@@ -63,7 +63,7 @@ class SquareService {
     // Cancel a subscription
     async cancelSubscription(subscriptionId) {
         try {
-            const response = await this.client.subscriptionsApi.cancelSubscription(subscriptionId);
+            const response = await this.client.subscriptions.cancelSubscription(subscriptionId);
             return response.result.subscription;
         } catch (error) {
             console.error('Error canceling Square subscription:', error);
@@ -74,7 +74,7 @@ class SquareService {
     // Get subscription details
     async getSubscription(subscriptionId) {
         try {
-            const response = await this.client.subscriptionsApi.retrieveSubscription(subscriptionId);
+            const response = await this.client.subscriptions.retrieveSubscription(subscriptionId);
             return response.result.subscription;
         } catch (error) {
             console.error('Error retrieving Square subscription:', error);
@@ -98,7 +98,7 @@ class SquareService {
                 paymentRequest.customerId = customerId;
             }
 
-            const response = await this.client.paymentsApi.createPayment(paymentRequest);
+            const response = await this.client.payments.createPayment(paymentRequest);
             return response.result.payment;
         } catch (error) {
             console.error('Error creating Square payment:', error);
@@ -109,7 +109,7 @@ class SquareService {
     // Get customer details
     async getCustomer(customerId) {
         try {
-            const response = await this.client.customersApi.retrieveCustomer(customerId);
+            const response = await this.client.customers.retrieveCustomer(customerId);
             return response.result.customer;
         } catch (error) {
             console.error('Error retrieving Square customer:', error);
@@ -120,7 +120,7 @@ class SquareService {
     // Update customer
     async updateCustomer(customerId, updates) {
         try {
-            const response = await this.client.customersApi.updateCustomer(customerId, updates);
+            const response = await this.client.customers.updateCustomer(customerId, updates);
             return response.result.customer;
         } catch (error) {
             console.error('Error updating Square customer:', error);
@@ -131,7 +131,7 @@ class SquareService {
     // Create a card for a customer
     async createCard(customerId, cardToken) {
         try {
-            const response = await this.client.cardsApi.createCard({
+            const response = await this.client.cards.createCard({
                 card: {
                     customerId: customerId,
                     sourceId: cardToken
@@ -148,7 +148,7 @@ class SquareService {
     // Get subscription plans
     async getSubscriptionPlans() {
         try {
-            const response = await this.client.catalogApi.searchCatalogItems({
+            const response = await this.client.catalog.searchCatalogItems({
                 productTypes: ['SUBSCRIPTION_PLAN']
             });
 
