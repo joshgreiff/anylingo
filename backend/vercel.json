@@ -1,14 +1,9 @@
 {
   "version": 2,
-  "functions": {
-    "simple-vercel.js": {
-      "maxDuration": 10
-    }
-  },
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "simple-vercel.js"
+      "dest": "/api"
     }
   ]
 } 
