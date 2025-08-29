@@ -16,6 +16,10 @@ const connectDB = async () => {
             await mongoose.connect(process.env.MONGODB_URI, {
                 useNewUrlParser: true,
                 useUnifiedTopology: true,
+                serverSelectionTimeoutMS: 30000, // 30 seconds
+                socketTimeoutMS: 45000, // 45 seconds
+                bufferCommands: false, // Disable mongoose buffering
+                bufferMaxEntries: 0
             });
             dbConnected = true;
             console.log('✅ Connected to MongoDB');
@@ -239,25 +243,33 @@ module.exports = async (req, res) => {
         });
         req.on('end', async () => {
             try {
+                console.log('Registration request received');
                 const { firstName, lastName, email, password, preferences } = JSON.parse(body);
+                console.log('Parsed data:', { firstName, lastName, email, preferences: !!preferences });
                 
                 // Basic validation
                 if (!firstName || !lastName || !email || !password) {
+                    console.log('Validation failed: missing required fields');
                     res.status(400).json({ error: 'All fields are required' });
                     return;
                 }
                 
                 if (password.length < 8) {
+                    console.log('Validation failed: password too short');
                     res.status(400).json({ error: 'Password must be at least 8 characters' });
                     return;
                 }
                 
+                console.log('Database connected:', dbConnected);
+                
                 let user;
                 
                 if (dbConnected) {
+                    console.log('Attempting to save user to database...');
                     // Check if user already exists
                     const existingUser = await User.findOne({ email: email.toLowerCase() });
                     if (existingUser) {
+                        console.log('User already exists:', email);
                         res.status(400).json({ error: 'User with this email already exists' });
                         return;
                     }
@@ -276,7 +288,9 @@ module.exports = async (req, res) => {
                         }
                     });
                     
+                    console.log('Saving user to database...');
                     await user.save();
+                    console.log('User saved successfully:', user._id);
                 } else {
                     // Fallback to mock user if database is not connected
                     console.log('Database not connected, using mock user');
@@ -297,6 +311,7 @@ module.exports = async (req, res) => {
                 // Mock JWT token (in production, use proper JWT)
                 const mockToken = 'mock_jwt_token_' + Date.now();
                 
+                console.log('Registration successful, returning response');
                 res.json({
                     message: 'User registered successfully',
                     user: {
@@ -311,7 +326,11 @@ module.exports = async (req, res) => {
                 });
             } catch (error) {
                 console.error('Registration error:', error);
-                res.status(500).json({ error: 'Failed to register user' });
+                console.error('Error stack:', error.stack);
+                res.status(500).json({ 
+                    error: 'Failed to register user',
+                    details: error.message 
+                });
             }
         });
         return;
