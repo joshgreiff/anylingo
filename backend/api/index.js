@@ -152,6 +152,42 @@ module.exports = (req, res) => {
     return;
   }
   
+  // Get current user (auth/me)
+  if (pathname === '/api/auth/me' && req.method === 'GET') {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(401).json({ error: 'No token provided' });
+      return;
+    }
+    
+    const token = authHeader.substring(7);
+    
+    // For now, accept any mock token
+    if (token.startsWith('mock_jwt_token_')) {
+      // Mock user data
+      const mockUser = {
+        id: 'user_123',
+        firstName: 'Test',
+        lastName: 'User',
+        email: 'test@example.com',
+        subscription: {
+          status: 'lifetime',
+          startDate: new Date(),
+          endDate: null
+        }
+      };
+      
+      res.json({
+        user: mockUser,
+        message: 'User authenticated successfully'
+      });
+    } else {
+      res.status(401).json({ error: 'Invalid token' });
+    }
+    return;
+  }
+  
   // Apply promo code
   if (pathname === '/api/subscriptions/apply-promo' && req.method === 'POST') {
     let body = '';
