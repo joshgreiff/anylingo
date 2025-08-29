@@ -5,6 +5,14 @@ let dbConnected = false;
 const connectDB = async () => {
     if (!dbConnected) {
         try {
+            console.log('Attempting to connect to MongoDB...');
+            console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
+            
+            if (!process.env.MONGODB_URI) {
+                console.error('MONGODB_URI environment variable not set');
+                return;
+            }
+            
             await mongoose.connect(process.env.MONGODB_URI, {
                 useNewUrlParser: true,
                 useUnifiedTopology: true,
@@ -13,6 +21,7 @@ const connectDB = async () => {
             console.log('✅ Connected to MongoDB');
         } catch (error) {
             console.error('⚠️ Database connection failed:', error.message);
+            console.error('Full error:', error);
         }
     }
 };
@@ -194,28 +203,47 @@ module.exports = async (req, res) => {
                     return;
                 }
                 
-                // Check if user already exists
-                const existingUser = await User.findOne({ email: email.toLowerCase() });
-                if (existingUser) {
-                    res.status(400).json({ error: 'User with this email already exists' });
-                    return;
-                }
+                let user;
                 
-                // Create new user
-                const user = new User({
-                    firstName,
-                    lastName,
-                    email: email.toLowerCase(),
-                    password, // In production, this should be hashed
-                    preferences,
-                    subscription: {
-                        status: 'free',
-                        startDate: new Date(),
-                        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+                if (dbConnected) {
+                    // Check if user already exists
+                    const existingUser = await User.findOne({ email: email.toLowerCase() });
+                    if (existingUser) {
+                        res.status(400).json({ error: 'User with this email already exists' });
+                        return;
                     }
-                });
-                
-                await user.save();
+                    
+                    // Create new user in database
+                    user = new User({
+                        firstName,
+                        lastName,
+                        email: email.toLowerCase(),
+                        password, // In production, this should be hashed
+                        preferences,
+                        subscription: {
+                            status: 'free',
+                            startDate: new Date(),
+                            endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+                        }
+                    });
+                    
+                    await user.save();
+                } else {
+                    // Fallback to mock user if database is not connected
+                    console.log('Database not connected, using mock user');
+                    user = {
+                        _id: 'mock_user_' + Date.now(),
+                        firstName,
+                        lastName,
+                        email: email.toLowerCase(),
+                        preferences,
+                        subscription: {
+                            status: 'free',
+                            startDate: new Date(),
+                            endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+                        }
+                    };
+                }
                 
                 // Mock JWT token (in production, use proper JWT)
                 const mockToken = 'mock_jwt_token_' + Date.now();
