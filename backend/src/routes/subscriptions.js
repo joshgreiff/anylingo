@@ -4,6 +4,94 @@ const squareService = require('../services/squareService');
 const User = require('../models/User');
 const router = express.Router();
 
+// Promo codes for testing
+const PROMO_CODES = {
+    'TESTING2025': {
+        type: 'lifetime',
+        description: 'Free lifetime access for testing',
+        valid: true
+    },
+    'FOUNDER2025': {
+        type: 'lifetime', 
+        description: 'Founder access',
+        valid: true
+    }
+};
+
+// Validate promo code
+router.post('/validate-promo', async (req, res) => {
+    try {
+        const { promoCode } = req.body;
+        
+        if (!promoCode) {
+            return res.status(400).json({ error: 'Promo code is required' });
+        }
+
+        const code = PROMO_CODES[promoCode.toUpperCase()];
+        
+        if (!code || !code.valid) {
+            return res.status(400).json({ error: 'Invalid promo code' });
+        }
+
+        res.json({
+            valid: true,
+            type: code.type,
+            description: code.description
+        });
+
+    } catch (error) {
+        console.error('Validate promo code error:', error);
+        res.status(500).json({ error: 'Failed to validate promo code' });
+    }
+});
+
+// Apply promo code to user
+router.post('/apply-promo', auth, async (req, res) => {
+    try {
+        const { promoCode } = req.body;
+        const user = req.user;
+
+        if (!promoCode) {
+            return res.status(400).json({ error: 'Promo code is required' });
+        }
+
+        const code = PROMO_CODES[promoCode.toUpperCase()];
+        
+        if (!code || !code.valid) {
+            return res.status(400).json({ error: 'Invalid promo code' });
+        }
+
+        // Check if user already has an active subscription
+        if (user.hasActiveSubscription()) {
+            return res.status(400).json({ error: 'User already has an active subscription' });
+        }
+
+        // Apply promo code benefits
+        if (code.type === 'lifetime') {
+            user.subscription = {
+                status: 'lifetime',
+                startDate: new Date(),
+                endDate: null, // Lifetime access
+                promoCode: promoCode.toUpperCase(),
+                autoRenew: false
+            };
+        }
+
+        await user.save();
+
+        res.json({
+            message: 'Promo code applied successfully',
+            subscription: user.subscription,
+            type: code.type,
+            description: code.description
+        });
+
+    } catch (error) {
+        console.error('Apply promo code error:', error);
+        res.status(500).json({ error: 'Failed to apply promo code' });
+    }
+});
+
 // Get subscription plans
 router.get('/plans', async (req, res) => {
     try {

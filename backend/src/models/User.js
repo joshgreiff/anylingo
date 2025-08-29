@@ -118,7 +118,9 @@ userSchema.methods.getFullName = function() {
 
 // Check if subscription is active
 userSchema.methods.hasActiveSubscription = function() {
+    if (!this.subscription || !this.subscription.status) return false;
     if (this.subscription.status === 'free') return false;
+    if (this.subscription.status === 'lifetime') return true;
     if (!this.subscription.endDate) return false;
     return new Date() < this.subscription.endDate;
 };

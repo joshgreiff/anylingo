@@ -1,10 +1,18 @@
 // AnyLingo Signup Page JavaScript
 
+const API_URL = 'https://anylingobackend.vercel.app';
+
 document.addEventListener('DOMContentLoaded', function() {
     const signupForm = document.getElementById('signup-form');
+    const promoCodeInput = document.getElementById('promoCode');
     
     if (signupForm) {
         signupForm.addEventListener('submit', handleSignup);
+    }
+
+    // Promo code validation
+    if (promoCodeInput) {
+        promoCodeInput.addEventListener('blur', validatePromoCode);
     }
 
     // Form validation
@@ -45,6 +53,56 @@ document.addEventListener('DOMContentLoaded', function() {
         return errors;
     }
 
+    // Validate promo code
+    async function validatePromoCode() {
+        const promoCode = promoCodeInput.value.trim();
+        
+        if (!promoCode) {
+            clearPromoCodeMessage();
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/api/subscriptions/validate-promo`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ promoCode })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.valid) {
+                showPromoCodeMessage('success', `Valid promo code! ${data.description}`);
+            } else {
+                showPromoCodeMessage('error', data.error || 'Invalid promo code');
+            }
+        } catch (error) {
+            console.error('Promo code validation error:', error);
+            showPromoCodeMessage('error', 'Failed to validate promo code');
+        }
+    }
+
+    // Show promo code message
+    function showPromoCodeMessage(type, message) {
+        clearPromoCodeMessage();
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `text-sm mt-1 ${type === 'success' ? 'text-green-600' : 'text-red-600'}`;
+        messageDiv.textContent = message;
+        
+        promoCodeInput.parentNode.appendChild(messageDiv);
+    }
+
+    // Clear promo code message
+    function clearPromoCodeMessage() {
+        const existingMessage = promoCodeInput.parentNode.querySelector('.text-sm.mt-1');
+        if (existingMessage) {
+            existingMessage.remove();
+        }
+    }
+
     // Handle signup form submission
     async function handleSignup(e) {
         e.preventDefault();
@@ -64,29 +122,39 @@ document.addEventListener('DOMContentLoaded', function() {
         submitButton.disabled = true;
 
         try {
-            // Simulate API call
-            await createAccount(formData);
+            // Create account
+            const userData = await createAccount(formData);
             
-            // Show success and redirect to payment
-            showSuccess('Account created successfully! Redirecting to payment...');
-            
-            // Store user data temporarily (in real app, this would be in backend)
-            const userData = {
-                fullName: formData.get('fullName'),
-                email: formData.get('email'),
-                targetLanguage: formData.get('targetLanguage'),
-                marketing: formData.get('marketing') === 'on'
-            };
-            
-            localStorage.setItem('anylingo_user_data', JSON.stringify(userData));
-            
-            // Redirect to payment page
-            setTimeout(() => {
-                window.location.href = 'payment.html';
-            }, 2000);
+            // If promo code is provided, apply it
+            const promoCode = formData.get('promoCode').trim();
+            if (promoCode) {
+                await applyPromoCode(userData.token, promoCode);
+                showSuccess('Account created successfully! Promo code applied. Redirecting to app...');
+                
+                // Store token and redirect to app
+                localStorage.setItem('anylingo_token', userData.token);
+                setTimeout(() => {
+                    window.location.href = '../app/';
+                }, 2000);
+            } else {
+                showSuccess('Account created successfully! Redirecting to payment...');
+                
+                // Store user data and redirect to payment
+                localStorage.setItem('anylingo_token', userData.token);
+                localStorage.setItem('anylingo_user_data', JSON.stringify({
+                    fullName: formData.get('fullName'),
+                    email: formData.get('email'),
+                    targetLanguage: formData.get('targetLanguage'),
+                    marketing: formData.get('marketing') === 'on'
+                }));
+                
+                setTimeout(() => {
+                    window.location.href = 'payment.html';
+                }, 2000);
+            }
 
         } catch (error) {
-            showError('Failed to create account. Please try again.');
+            showError(error.message || 'Failed to create account. Please try again.');
             console.error('Signup error:', error);
         } finally {
             // Reset button
@@ -95,23 +163,51 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Simulate account creation API call
+    // Create account API call
     async function createAccount(formData) {
-        return new Promise((resolve, reject) => {
-            // Simulate network delay
-            setTimeout(() => {
-                // Simulate 95% success rate
-                if (Math.random() > 0.05) {
-                    resolve({
-                        success: true,
-                        userId: 'user_' + Date.now(),
-                        message: 'Account created successfully'
-                    });
-                } else {
-                    reject(new Error('Network error'));
+        const response = await fetch(`${API_URL}/api/auth/register`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                firstName: formData.get('fullName').split(' ')[0],
+                lastName: formData.get('fullName').split(' ').slice(1).join(' ') || '',
+                email: formData.get('email'),
+                password: formData.get('password'),
+                preferences: {
+                    targetLanguages: [formData.get('targetLanguage')]
                 }
-            }, 1500);
+            })
         });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to create account');
+        }
+
+        return data;
+    }
+
+    // Apply promo code API call
+    async function applyPromoCode(token, promoCode) {
+        const response = await fetch(`${API_URL}/api/subscriptions/apply-promo`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ promoCode })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to apply promo code');
+        }
+
+        return data;
     }
 
     // Show validation errors
@@ -256,11 +352,4 @@ document.addEventListener('DOMContentLoaded', function() {
             localStorage.removeItem(`anylingo_signup_${input.name}`);
         });
     }
-
-    // Add form data clearing to successful signup
-    const originalHandleSignup = handleSignup;
-    handleSignup = async function(e) {
-        await originalHandleSignup(e);
-        clearSavedFormData();
-    };
 }); 
