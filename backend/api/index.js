@@ -1,40 +1,62 @@
 const mongoose = require('mongoose');
 
-// Database connection
+// Database connection with connection pooling
 let dbConnected = false;
+let connectionPromise = null;
+
 const connectDB = async () => {
-    try {
-        console.log('Attempting to connect to MongoDB...');
-        console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
-        
-        if (!process.env.MONGODB_URI) {
-            console.error('MONGODB_URI environment variable not set');
+    if (dbConnected) {
+        return true;
+    }
+    
+    if (connectionPromise) {
+        return connectionPromise;
+    }
+    
+    connectionPromise = (async () => {
+        try {
+            console.log('Attempting to connect to MongoDB...');
+            console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
+            
+            if (!process.env.MONGODB_URI) {
+                console.error('MONGODB_URI environment variable not set');
+                return false;
+            }
+            
+            // Check if already connected
+            if (mongoose.connection.readyState === 1) {
+                console.log('Already connected to MongoDB');
+                dbConnected = true;
+                return true;
+            }
+            
+            // Close any existing connections
+            if (mongoose.connection.readyState !== 0) {
+                await mongoose.disconnect();
+            }
+            
+            await mongoose.connect(process.env.MONGODB_URI, {
+                useNewUrlParser: true,
+                useUnifiedTopology: true,
+                serverSelectionTimeoutMS: 30000,
+                socketTimeoutMS: 45000,
+                bufferCommands: false,
+                bufferMaxEntries: 0,
+                maxPoolSize: 10,
+                minPoolSize: 1
+            });
+            
+            dbConnected = true;
+            console.log('✅ Connected to MongoDB');
+            return true;
+        } catch (error) {
+            console.error('⚠️ Database connection failed:', error.message);
+            console.error('Full error:', error);
             return false;
         }
-        
-        // In serverless environment, we need to connect on each request
-        // Check if already connected
-        if (mongoose.connection.readyState === 1) {
-            console.log('Already connected to MongoDB');
-            return true;
-        }
-        
-        await mongoose.connect(process.env.MONGODB_URI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-            serverSelectionTimeoutMS: 30000, // 30 seconds
-            socketTimeoutMS: 45000, // 45 seconds
-            bufferCommands: false, // Disable mongoose buffering
-            bufferMaxEntries: 0
-        });
-        
-        console.log('✅ Connected to MongoDB');
-        return true;
-    } catch (error) {
-        console.error('⚠️ Database connection failed:', error.message);
-        console.error('Full error:', error);
-        return false;
-    }
+    })();
+    
+    return connectionPromise;
 };
 
 // User Schema
