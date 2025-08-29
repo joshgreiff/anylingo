@@ -3,30 +3,37 @@ const mongoose = require('mongoose');
 // Database connection
 let dbConnected = false;
 const connectDB = async () => {
-    if (!dbConnected) {
-        try {
-            console.log('Attempting to connect to MongoDB...');
-            console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
-            
-            if (!process.env.MONGODB_URI) {
-                console.error('MONGODB_URI environment variable not set');
-                return;
-            }
-            
-            await mongoose.connect(process.env.MONGODB_URI, {
-                useNewUrlParser: true,
-                useUnifiedTopology: true,
-                serverSelectionTimeoutMS: 30000, // 30 seconds
-                socketTimeoutMS: 45000, // 45 seconds
-                bufferCommands: false, // Disable mongoose buffering
-                bufferMaxEntries: 0
-            });
-            dbConnected = true;
-            console.log('✅ Connected to MongoDB');
-        } catch (error) {
-            console.error('⚠️ Database connection failed:', error.message);
-            console.error('Full error:', error);
+    try {
+        console.log('Attempting to connect to MongoDB...');
+        console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
+        
+        if (!process.env.MONGODB_URI) {
+            console.error('MONGODB_URI environment variable not set');
+            return false;
         }
+        
+        // In serverless environment, we need to connect on each request
+        // Check if already connected
+        if (mongoose.connection.readyState === 1) {
+            console.log('Already connected to MongoDB');
+            return true;
+        }
+        
+        await mongoose.connect(process.env.MONGODB_URI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+            serverSelectionTimeoutMS: 30000, // 30 seconds
+            socketTimeoutMS: 45000, // 45 seconds
+            bufferCommands: false, // Disable mongoose buffering
+            bufferMaxEntries: 0
+        });
+        
+        console.log('✅ Connected to MongoDB');
+        return true;
+    } catch (error) {
+        console.error('⚠️ Database connection failed:', error.message);
+        console.error('Full error:', error);
+        return false;
     }
 };
 
@@ -90,7 +97,7 @@ module.exports = async (req, res) => {
     }
     
     // Connect to database
-    await connectDB();
+    dbConnected = await connectDB();
     
     // Route handling
     const { pathname } = new URL(req.url, `http://${req.headers.host}`);
