@@ -8,7 +8,7 @@
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/simple-vercel.js"
+      "dest": "simple-vercel.js"
     }
   ]
 } 
