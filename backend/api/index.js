@@ -10,6 +10,9 @@ const connectDB = async () => {
 
     try {
         console.log('Attempting to connect to MongoDB...');
+        console.log('Environment variables check:');
+        console.log('- MONGODB_URI exists:', !!process.env.MONGODB_URI);
+        console.log('- NODE_ENV:', process.env.NODE_ENV);
         
         if (!process.env.MONGODB_URI) {
             console.error('MONGODB_URI environment variable not set');
@@ -44,6 +47,7 @@ const connectDB = async () => {
         return true;
     } catch (error) {
         console.error('⚠️ Database connection failed:', error.message);
+        console.error('Full error:', error);
         return false;
     }
 };
