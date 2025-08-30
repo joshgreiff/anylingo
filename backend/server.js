@@ -356,8 +356,13 @@ app.use('*', (req, res) => {
 // Start server
 const startServer = async () => {
     try {
-        // Connect to database
-        await connectDB();
+        // Try to connect to database, but don't fail if it doesn't work
+        try {
+            await connectDB();
+        } catch (dbError) {
+            console.error('⚠️ Database connection failed:', dbError.message);
+            console.log('🔄 Starting server without database connection...');
+        }
         
         // Start the server
         app.listen(PORT, () => {
