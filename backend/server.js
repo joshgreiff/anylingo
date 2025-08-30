@@ -105,6 +105,16 @@ app.get('/api/health', (req, res) => {
     });
 });
 
+// Root endpoint for Railway health checks
+app.get('/', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        message: 'AnyLingo API is running',
+        database: dbConnected ? 'Connected' : 'Disconnected',
+        timestamp: new Date().toISOString()
+    });
+});
+
 // Test endpoint
 app.get('/api/test', (req, res) => {
     res.json({ 
