@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 
 const app = express();
+const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(helmet());
@@ -20,30 +21,32 @@ app.use(express.urlencoded({ extended: true }));
 // Database connection
 let dbConnected = false;
 const connectDB = async () => {
-    if (!dbConnected) {
-        try {
-            console.log('Attempting to connect to MongoDB...');
-            await mongoose.connect(process.env.MONGODB_URI, {
-                useNewUrlParser: true,
-                useUnifiedTopology: true,
-                serverSelectionTimeoutMS: 30000,
-                socketTimeoutMS: 45000,
-                bufferCommands: false,
-                bufferMaxEntries: 0
-            });
-            dbConnected = true;
-            console.log('✅ Connected to MongoDB');
-        } catch (error) {
-            console.error('⚠️ Database connection failed:', error.message);
+    try {
+        console.log('Attempting to connect to MongoDB...');
+        console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
+        
+        if (!process.env.MONGODB_URI) {
+            console.error('MONGODB_URI environment variable not set');
+            return false;
         }
+        
+        await mongoose.connect(process.env.MONGODB_URI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+            serverSelectionTimeoutMS: 30000,
+            socketTimeoutMS: 45000,
+            maxPoolSize: 10,
+            minPoolSize: 1
+        });
+        
+        dbConnected = true;
+        console.log('✅ Connected to MongoDB');
+        return true;
+    } catch (error) {
+        console.error('⚠️ Database connection failed:', error.message);
+        return false;
     }
 };
-
-// Database connection middleware
-app.use(async (req, res, next) => {
-    await connectDB();
-    next();
-});
 
 // User Schema
 const userSchema = new mongoose.Schema({
@@ -97,7 +100,8 @@ app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'OK', 
         message: 'AnyLingo API is running',
-        database: dbConnected ? 'Connected' : 'Disconnected'
+        database: dbConnected ? 'Connected' : 'Disconnected',
+        timestamp: new Date().toISOString()
     });
 });
 
@@ -180,10 +184,14 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(400).json({ error: 'Password must be at least 8 characters' });
         }
         
+        console.log('Registration request received for:', email);
+        console.log('Database connected:', dbConnected);
+        
         if (dbConnected) {
             // Check if user already exists
             const existingUser = await User.findOne({ email: email.toLowerCase() });
             if (existingUser) {
+                console.log('User already exists:', email);
                 return res.status(400).json({ error: 'User with this email already exists' });
             }
             
@@ -202,6 +210,7 @@ app.post('/api/auth/register', async (req, res) => {
             });
             
             await user.save();
+            console.log('User saved successfully:', user._id);
             
             // Mock JWT token
             const mockToken = 'mock_jwt_token_' + Date.now();
@@ -219,6 +228,7 @@ app.post('/api/auth/register', async (req, res) => {
                 token: mockToken
             });
         } else {
+            console.log('Database not connected, using mock user');
             // Fallback to mock user if database is not connected
             const mockUser = {
                 id: 'mock_user_' + Date.now(),
@@ -243,7 +253,7 @@ app.post('/api/auth/register', async (req, res) => {
         }
     } catch (error) {
         console.error('Registration error:', error);
-        res.status(500).json({ error: 'Failed to register user' });
+        res.status(500).json({ error: 'Failed to register user', details: error.message });
     }
 });
 
@@ -343,5 +353,28 @@ app.use('*', (req, res) => {
     res.status(404).json({ error: 'Route not found' });
 });
 
-// For Vercel, export the app
+// Start server
+const startServer = async () => {
+    try {
+        // Connect to database
+        await connectDB();
+        
+        // Start the server
+        app.listen(PORT, () => {
+            console.log(`🚀 AnyLingo API server running on port ${PORT}`);
+            console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+            console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
+        });
+    } catch (error) {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+    }
+};
+
+// Only start server if this file is run directly
+if (require.main === module) {
+    startServer();
+}
+
+// For Vercel compatibility, export the app
 module.exports = app; 
