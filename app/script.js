@@ -1,13 +1,25 @@
 // Global variables
 let currentSection = 'home';
 let currentLesson = null;
+let currentUser = null;
 let lessons = {};
 let sentenceMappings = []; // Store mappings between original and translated sentences
+let isTranslating = false;
+let translationMode = 'sentence'; // 'sentence' or 'word'
+let currentTargetLanguage = 'es';
+let currentSourceLanguage = 'auto';
+let speechSynthesis = window.speechSynthesis;
+let currentUtterance = null;
+let isPlaying = false;
+let currentWordIndex = 0;
+let currentSentenceIndex = 0;
+let sentences = [];
+let translatedSentences = [];
+let wordTimings = [];
 
 // Speech synthesis variables
 let synth = null;
 let utterance = null;
-let isPlaying = false;
 let isLooping = false;
 let speechSynthesisSupported = false;
 let isPaused = false; // Track pause state properly
@@ -23,8 +35,6 @@ let userPreferences = {
 // Text highlighting variables
 let currentHighlightedWord = null;
 let highlightInterval = null;
-let currentWordIndex = 0;
-let words = [];
 let wordBoundaries = [];
 let pausedWordIndex = null; // Track word position when paused
 let pauseStartTime = 0; // Track when pause started
@@ -41,6 +51,9 @@ let recordingSupported = false;
 
 // Translation popup management
 let currentTranslationPopup = null;
+
+// API configuration
+const API_URL = 'https://anylingo-production.up.railway.app';
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
@@ -87,6 +100,17 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Set up event listeners
     setupEventListeners();
+    
+    // Initialize speech synthesis
+    if (speechSynthesisSupported) {
+        initializeSpeechSynthesis();
+    }
+    
+    // Initialize lesson form
+    initializeLessonForm();
+    
+    // Load existing lessons
+    loadExistingLessons();
 });
 
 // Initialize voices for speech synthesis
@@ -2752,4 +2776,309 @@ function saveRecording() {
     
     // Show message
     showMessage('contentMessage', 'Recording saved successfully!', 'success');
+}
+
+// Lesson management functions
+async function saveLessonToDatabase(lessonData) {
+    try {
+        if (!currentUser || !currentUser.id) {
+            console.error('No user logged in, cannot save lesson');
+            return null;
+        }
+
+        const response = await fetch(`${API_URL}/api/lessons`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('anylingo_token')}`
+            },
+            body: JSON.stringify({
+                ...lessonData,
+                userId: currentUser.id
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to save lesson: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log('Lesson saved to database:', result.lesson);
+        return result.lesson;
+    } catch (error) {
+        console.error('Error saving lesson to database:', error);
+        // Fallback to local storage if database fails
+        return saveLessonToLocalStorage(lessonData);
+    }
+}
+
+function saveLessonToLocalStorage(lessonData) {
+    try {
+        const lessons = JSON.parse(localStorage.getItem('anylingo_lessons') || '[]');
+        const lesson = {
+            ...lessonData,
+            id: 'local_' + Date.now(),
+            createdAt: new Date().toISOString()
+        };
+        lessons.push(lesson);
+        localStorage.setItem('anylingo_lessons', JSON.stringify(lessons));
+        console.log('Lesson saved to local storage:', lesson);
+        return lesson;
+    } catch (error) {
+        console.error('Error saving to local storage:', error);
+        return null;
+    }
+}
+
+async function loadLessonsFromDatabase() {
+    try {
+        if (!currentUser || !currentUser.id) {
+            console.log('No user logged in, loading from local storage');
+            return loadLessonsFromLocalStorage();
+        }
+
+        const response = await fetch(`${API_URL}/api/lessons/${currentUser.id}`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('anylingo_token')}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to load lessons: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log('Lessons loaded from database:', result.lessons);
+        return result.lessons;
+    } catch (error) {
+        console.error('Error loading lessons from database:', error);
+        // Fallback to local storage
+        return loadLessonsFromLocalStorage();
+    }
+}
+
+function loadLessonsFromLocalStorage() {
+    try {
+        const lessons = JSON.parse(localStorage.getItem('anylingo_lessons') || '[]');
+        console.log('Lessons loaded from local storage:', lessons);
+        return lessons;
+    } catch (error) {
+        console.error('Error loading from local storage:', error);
+        return [];
+    }
+}
+
+async function updateLessonInDatabase(lessonId, updates) {
+    try {
+        if (!currentUser || !currentUser.id) {
+            console.error('No user logged in, cannot update lesson');
+            return false;
+        }
+
+        const response = await fetch(`${API_URL}/api/lessons/${lessonId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('anylingo_token')}`
+            },
+            body: JSON.stringify(updates)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to update lesson: ${response.statusText}`);
+        }
+
+        console.log('Lesson updated in database:', lessonId);
+        return true;
+    } catch (error) {
+        console.error('Error updating lesson in database:', error);
+        return false;
+    }
+}
+
+async function deleteLessonFromDatabase(lessonId) {
+    try {
+        if (!currentUser || !currentUser.id) {
+            console.error('No user logged in, cannot delete lesson');
+            return false;
+        }
+
+        const response = await fetch(`${API_URL}/api/lessons/${lessonId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('anylingo_token')}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to delete lesson: ${response.statusText}`);
+        }
+
+        console.log('Lesson deleted from database:', lessonId);
+        return true;
+    } catch (error) {
+        console.error('Error deleting lesson from database:', error);
+        return false;
+    }
+}
+
+// Initialize lesson form
+function initializeLessonForm() {
+    const lessonForm = document.getElementById('lessonForm');
+    if (lessonForm) {
+        lessonForm.addEventListener('submit', handleLessonSubmission);
+    }
+}
+
+// Handle lesson form submission
+async function handleLessonSubmission(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const title = formData.get('title').trim();
+    const content = formData.get('content').trim();
+    
+    if (!title || !content) {
+        showMessage('createLessonMessage', 'Please enter both title and content.', 'error');
+        return;
+    }
+    
+    // Create lesson data
+    const lessonData = {
+        title: title,
+        content: content,
+        targetLanguage: formData.get('targetLanguage'),
+        sourceLanguage: currentSourceLanguage || 'auto',
+        status: 'draft'
+    };
+    
+    // Save lesson
+    const savedLesson = await saveLessonToDatabase(lessonData);
+    
+    if (savedLesson) {
+        // Update local lessons object
+        lessons[savedLesson.id] = savedLesson;
+        
+        // Update UI
+        currentLesson = savedLesson;
+        showSection('translate');
+        loadLesson(savedLesson);
+        
+        // Clear form
+        e.target.reset();
+        
+        // Show success message
+        showMessage('createLessonMessage', 'Lesson created and saved successfully!', 'success');
+        
+        // Refresh lessons list
+        displayLessons();
+    } else {
+        showMessage('createLessonMessage', 'Failed to save lesson. Please try again.', 'error');
+    }
+}
+
+// Load existing lessons
+async function loadExistingLessons() {
+    const loadedLessons = await loadLessonsFromDatabase();
+    
+    // Convert array to object for compatibility
+    lessons = {};
+    loadedLessons.forEach(lesson => {
+        lessons[lesson.id] = lesson;
+    });
+    
+    // Display lessons
+    displayLessons();
+}
+
+// Display lessons in the UI
+function displayLessons() {
+    const lessonsList = document.getElementById('lessonsList');
+    if (!lessonsList) return;
+    
+    if (Object.keys(lessons).length === 0) {
+        lessonsList.innerHTML = `
+            <div class="p-4 border rounded-md bg-gray-50">
+                <p class="text-gray-500 text-center">No lessons found. Create a new lesson to get started.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    const lessonsHtml = Object.values(lessons).map(lesson => `
+        <div class="p-4 border rounded-md bg-white shadow-sm hover:shadow-md transition-shadow">
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <h4 class="text-lg font-semibold text-gray-900 mb-2">${lesson.title}</h4>
+                    <p class="text-sm text-gray-600 mb-2">${lesson.content.substring(0, 100)}${lesson.content.length > 100 ? '...' : ''}</p>
+                    <div class="flex items-center space-x-4 text-xs text-gray-500">
+                        <span>Target: ${lesson.targetLanguage}</span>
+                        <span>Created: ${new Date(lesson.createdAt).toLocaleDateString()}</span>
+                        <span>Status: ${lesson.status}</span>
+                    </div>
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="loadLesson('${lesson.id}')" class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+                        Load
+                    </button>
+                    <button onclick="deleteLesson('${lesson.id}')" class="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700">
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    lessonsList.innerHTML = lessonsHtml;
+}
+
+// Load a specific lesson
+function loadLesson(lessonId) {
+    const lesson = typeof lessonId === 'string' ? lessons[lessonId] : lessonId;
+    if (!lesson) {
+        console.error('Lesson not found:', lessonId);
+        return;
+    }
+    
+    currentLesson = lesson;
+    
+    // Update UI elements
+    const originalTextElement = document.getElementById('originalText');
+    if (originalTextElement) {
+        originalTextElement.innerHTML = `<pre class="whitespace-pre-wrap">${lesson.content}</pre>`;
+    }
+    
+    // Show translation section
+    showSection('translate');
+    
+    // Update lesson info
+    updateLessonInfo(lesson);
+}
+
+// Update lesson information display
+function updateLessonInfo(lesson) {
+    // Update any lesson info displays
+    console.log('Lesson loaded:', lesson);
+}
+
+// Delete a lesson
+async function deleteLesson(lessonId) {
+    if (!confirm('Are you sure you want to delete this lesson?')) {
+        return;
+    }
+    
+    // Delete from database
+    const deleted = await deleteLessonFromDatabase(lessonId);
+    
+    // Remove from local lessons object
+    delete lessons[lessonId];
+    
+    // Update UI
+    displayLessons();
+    
+    if (deleted) {
+        showMessage('contentMessage', 'Lesson deleted successfully!', 'success');
+    } else {
+        showMessage('contentMessage', 'Lesson deleted from local storage.', 'info');
+    }
 }
