@@ -99,14 +99,53 @@ const userSchema = new mongoose.Schema({
             default: true
         }
     },
-    preferences: {
-        targetLanguages: [String]
-    }
-}, {
-    timestamps: true
-});
+    preferences: { targetLanguages: [String] }
+}, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
+
+// Lesson Schema
+const lessonSchema = new mongoose.Schema({
+    userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
+    title: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    content: {
+        type: String,
+        required: true
+    },
+    targetLanguage: {
+        type: String,
+        required: true
+    },
+    sourceLanguage: {
+        type: String,
+        default: 'auto'
+    },
+    translation: {
+        type: String,
+        default: ''
+    },
+    status: {
+        type: String,
+        enum: ['draft', 'completed'],
+        default: 'draft'
+    },
+    metadata: {
+        wordCount: Number,
+        sentenceCount: Number,
+        createdAt: Date,
+        lastModified: Date
+    }
+}, { timestamps: true });
+
+const Lesson = mongoose.model('Lesson', lessonSchema);
 
 // User registration
 app.post('/api/auth/register', async (req, res) => {
@@ -398,6 +437,263 @@ app.post('/api/subscriptions/apply-promo', (req, res) => {
     } catch (error) {
         console.error('Apply promo code error:', error);
         res.status(500).json({ error: 'Failed to apply promo code' });
+    }
+});
+
+// Lesson endpoints
+app.post('/api/lessons', async (req, res) => {
+    try {
+        const { title, content, targetLanguage, sourceLanguage, translation, userId } = req.body;
+        
+        if (!title || !content || !targetLanguage || !userId) {
+            return res.status(400).json({ error: 'Title, content, target language, and user ID are required' });
+        }
+        
+        if (dbConnected) {
+            try {
+                // Verify user exists
+                const user = await User.findById(userId);
+                if (!user) {
+                    return res.status(404).json({ error: 'User not found' });
+                }
+                
+                // Calculate metadata
+                const wordCount = content.split(/\s+/).length;
+                const sentenceCount = content.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
+                
+                // Create lesson
+                const lesson = new Lesson({
+                    userId,
+                    title,
+                    content,
+                    targetLanguage,
+                    sourceLanguage: sourceLanguage || 'auto',
+                    translation: translation || '',
+                    metadata: {
+                        wordCount,
+                        sentenceCount,
+                        createdAt: new Date(),
+                        lastModified: new Date()
+                    }
+                });
+                
+                await lesson.save();
+                console.log('Lesson saved successfully:', lesson._id);
+                
+                res.json({
+                    message: 'Lesson created successfully',
+                    lesson: {
+                        id: lesson._id,
+                        title: lesson.title,
+                        content: lesson.content,
+                        targetLanguage: lesson.targetLanguage,
+                        sourceLanguage: lesson.sourceLanguage,
+                        translation: lesson.translation,
+                        status: lesson.status,
+                        metadata: lesson.metadata,
+                        createdAt: lesson.createdAt
+                    }
+                });
+            } catch (dbError) {
+                console.error('Database error:', dbError);
+                res.status(500).json({ error: 'Database error', details: dbError.message });
+            }
+        } else {
+            console.log('Database not connected, using mock lesson');
+            const mockLesson = {
+                id: 'mock_lesson_' + Date.now(),
+                title,
+                content,
+                targetLanguage,
+                sourceLanguage: sourceLanguage || 'auto',
+                translation: translation || '',
+                status: 'draft',
+                metadata: {
+                    wordCount: content.split(/\s+/).length,
+                    sentenceCount: content.split(/[.!?]+/).filter(s => s.trim().length > 0).length,
+                    createdAt: new Date(),
+                    lastModified: new Date()
+                }
+            };
+            
+            res.json({
+                message: 'Lesson created successfully (mock)',
+                lesson: mockLesson
+            });
+        }
+    } catch (error) {
+        console.error('Lesson creation error:', error);
+        res.status(500).json({ error: 'Failed to create lesson', details: error.message });
+    }
+});
+
+// Get user's lessons
+app.get('/api/lessons/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        if (dbConnected) {
+            try {
+                // Verify user exists
+                const user = await User.findById(userId);
+                if (!user) {
+                    return res.status(404).json({ error: 'User not found' });
+                }
+                
+                // Get user's lessons
+                const lessons = await Lesson.find({ userId }).sort({ createdAt: -1 });
+                console.log(`Found ${lessons.length} lessons for user: ${userId}`);
+                
+                res.json({
+                    message: 'Lessons retrieved successfully',
+                    lessons: lessons.map(lesson => ({
+                        id: lesson._id,
+                        title: lesson.title,
+                        content: lesson.content,
+                        targetLanguage: lesson.targetLanguage,
+                        sourceLanguage: lesson.sourceLanguage,
+                        translation: lesson.translation,
+                        status: lesson.status,
+                        metadata: lesson.metadata,
+                        createdAt: lesson.createdAt
+                    }))
+                });
+            } catch (dbError) {
+                console.error('Database error:', dbError);
+                res.status(500).json({ error: 'Database error', details: dbError.message });
+            }
+        } else {
+            console.log('Database not connected, returning mock lessons');
+            const mockLessons = [
+                {
+                    id: 'mock_lesson_1',
+                    title: 'Sample Lesson',
+                    content: 'This is a sample lesson for testing purposes.',
+                    targetLanguage: 'es',
+                    sourceLanguage: 'auto',
+                    translation: 'Esta es una lección de muestra para propósitos de prueba.',
+                    status: 'completed',
+                    metadata: {
+                        wordCount: 9,
+                        sentenceCount: 1,
+                        createdAt: new Date(),
+                        lastModified: new Date()
+                    }
+                }
+            ];
+            
+            res.json({
+                message: 'Lessons retrieved successfully (mock)',
+                lessons: mockLessons
+            });
+        }
+    } catch (error) {
+        console.error('Lesson retrieval error:', error);
+        res.status(500).json({ error: 'Failed to retrieve lessons', details: error.message });
+    }
+});
+
+// Update lesson
+app.put('/api/lessons/:lessonId', async (req, res) => {
+    try {
+        const { lessonId } = req.params;
+        const { title, content, targetLanguage, sourceLanguage, translation, status } = req.body;
+        
+        if (dbConnected) {
+            try {
+                const lesson = await Lesson.findById(lessonId);
+                if (!lesson) {
+                    return res.status(404).json({ error: 'Lesson not found' });
+                }
+                
+                // Update fields
+                if (title) lesson.title = title;
+                if (content) lesson.content = content;
+                if (targetLanguage) lesson.targetLanguage = targetLanguage;
+                if (sourceLanguage) lesson.sourceLanguage = sourceLanguage;
+                if (translation !== undefined) lesson.translation = translation;
+                if (status) lesson.status = status;
+                
+                // Update metadata
+                if (content) {
+                    lesson.metadata.wordCount = content.split(/\s+/).length;
+                    lesson.metadata.sentenceCount = content.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
+                }
+                lesson.metadata.lastModified = new Date();
+                
+                await lesson.save();
+                console.log('Lesson updated successfully:', lessonId);
+                
+                res.json({
+                    message: 'Lesson updated successfully',
+                    lesson: {
+                        id: lesson._id,
+                        title: lesson.title,
+                        content: lesson.content,
+                        targetLanguage: lesson.targetLanguage,
+                        sourceLanguage: lesson.sourceLanguage,
+                        translation: lesson.translation,
+                        status: lesson.status,
+                        metadata: lesson.metadata,
+                        createdAt: lesson.createdAt
+                    }
+                });
+            } catch (dbError) {
+                console.error('Database error:', dbError);
+                res.status(500).json({ error: 'Database error', details: dbError.message });
+            }
+        } else {
+            console.log('Database not connected, mock update');
+            res.json({
+                message: 'Lesson updated successfully (mock)',
+                lesson: {
+                    id: lessonId,
+                    title: title || 'Updated Lesson',
+                    content: content || 'Updated content',
+                    targetLanguage: targetLanguage || 'en',
+                    sourceLanguage: sourceLanguage || 'auto',
+                    translation: translation || '',
+                    status: status || 'draft',
+                    metadata: {
+                        wordCount: content ? content.split(/\s+/).length : 0,
+                        sentenceCount: content ? content.split(/[.!?]+/).filter(s => s.trim().length > 0).length : 0,
+                        createdAt: new Date(),
+                        lastModified: new Date()
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Lesson update error:', error);
+        res.status(500).json({ error: 'Failed to update lesson', details: error.message });
+    }
+});
+
+// Delete lesson
+app.delete('/api/lessons/:lessonId', async (req, res) => {
+    try {
+        const { lessonId } = req.params;
+        
+        if (dbConnected) {
+            try {
+                const lesson = await Lesson.findByIdAndDelete(lessonId);
+                if (!lesson) {
+                    return res.status(404).json({ error: 'Lesson not found' });
+                }
+                
+                console.log('Lesson deleted successfully:', lessonId);
+                res.json({ message: 'Lesson deleted successfully' });
+            } catch (dbError) {
+                console.error('Database error:', dbError);
+                res.status(500).json({ error: 'Database error', details: dbError.message });
+            }
+        } else {
+            console.log('Database not connected, mock delete');
+            res.json({ message: 'Lesson deleted successfully (mock)' });
+        }
+    } catch (error) {
+        console.error('Lesson deletion error:', error);
+        res.status(500).json({ error: 'Failed to delete lesson', details: error.message });
     }
 });
 
