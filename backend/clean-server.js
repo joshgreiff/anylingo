@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 const app = express();
@@ -133,12 +134,16 @@ app.post('/api/auth/register', async (req, res) => {
                     return res.status(400).json({ error: 'User with this email already exists' });
                 }
                 
+                // Hash password before saving
+                const saltRounds = 12;
+                const hashedPassword = await bcrypt.hash(password, saltRounds);
+                
                 // Create new user
                 const user = new User({
                     firstName,
                     lastName,
                     email: email.toLowerCase(),
-                    password, // In production, this should be hashed
+                    password: hashedPassword,
                     preferences,
                     subscription: {
                         status: 'free',
@@ -196,6 +201,87 @@ app.post('/api/auth/register', async (req, res) => {
     } catch (error) {
         console.error('Registration error:', error);
         res.status(500).json({ error: 'Failed to register user', details: error.message });
+    }
+});
+
+// User login
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        
+        // Basic validation
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
+        
+        console.log('Login request received for:', email);
+        console.log('Database connected:', dbConnected);
+        
+        if (dbConnected) {
+            try {
+                // Find user by email
+                const user = await User.findOne({ email: email.toLowerCase() });
+                if (!user) {
+                    console.log('User not found:', email);
+                    return res.status(401).json({ error: 'Invalid email or password' });
+                }
+                
+                // Verify password using bcrypt
+                const isPasswordValid = await bcrypt.compare(password, user.password);
+                if (!isPasswordValid) {
+                    console.log('Invalid password for user:', email);
+                    return res.status(401).json({ error: 'Invalid email or password' });
+                }
+                
+                console.log('User authenticated successfully:', user._id);
+                
+                // Mock JWT token
+                const mockToken = 'mock_jwt_token_' + Date.now();
+                
+                res.json({
+                    message: 'Login successful',
+                    user: {
+                        id: user._id,
+                        firstName: user.firstName,
+                        lastName: user.lastName,
+                        email: user.email,
+                        preferences: user.preferences,
+                        subscription: user.subscription
+                    },
+                    token: mockToken
+                });
+            } catch (dbError) {
+                console.error('Database error:', dbError);
+                res.status(500).json({ error: 'Database error', details: dbError.message });
+            }
+        } else {
+            console.log('Database not connected, using mock login');
+            // For mock login, we'll accept any password when database is down
+            // This is just for development/testing purposes
+            const mockUser = {
+                id: 'mock_user_' + Date.now(),
+                firstName: 'Test',
+                lastName: 'User',
+                email: email.toLowerCase(),
+                preferences: { targetLanguages: ['en'] },
+                subscription: {
+                    status: 'lifetime',
+                    startDate: new Date(),
+                    endDate: null
+                }
+            };
+            
+            const mockToken = 'mock_jwt_token_' + Date.now();
+            
+            res.json({
+                message: 'Login successful (mock)',
+                user: mockUser,
+                token: mockToken
+            });
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Failed to login', details: error.message });
     }
 });
 
