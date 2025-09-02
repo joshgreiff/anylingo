@@ -1,6 +1,6 @@
 // AnyLingo Signup Page JavaScript
 
-const API_URL = 'https://anylingobackend.vercel.app';
+const API_URL = 'https://anylingo-production.up.railway.app';
 
 document.addEventListener('DOMContentLoaded', function() {
     const signupForm = document.getElementById('signup-form');

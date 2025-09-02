@@ -369,7 +369,7 @@
 
             try {
                 // Verify token with backend
-                const response = await fetch('https://anylingobackend.vercel.app/api/auth/me', {
+                const response = await fetch('https://anylingo-production.up.railway.app/api/auth/me', {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
