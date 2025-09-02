@@ -366,6 +366,10 @@ app.use('*', (req, res) => {
 // Start server
 const startServer = async () => {
     try {
+        console.log('🚀 Starting AnyLingo API server...');
+        console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`🔗 Port: ${PORT}`);
+        
         // Try to connect to database, but don't fail if it doesn't work
         try {
             await connectDB();
@@ -375,13 +379,31 @@ const startServer = async () => {
         }
         
         // Start the server
-        app.listen(PORT, () => {
-            console.log(`🚀 AnyLingo API server running on port ${PORT}`);
-            console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-            console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
+        const server = app.listen(PORT, '0.0.0.0', () => {
+            console.log(`✅ AnyLingo API server running on port ${PORT}`);
+            console.log(`🔗 Health check: http://0.0.0.0:${PORT}/`);
+            console.log(`🌐 Server is ready for Railway health checks`);
         });
+        
+        // Handle server errors
+        server.on('error', (error) => {
+            console.error('❌ Server error:', error);
+            if (error.code === 'EADDRINUSE') {
+                console.error('Port is already in use');
+            }
+        });
+        
+        // Handle process signals
+        process.on('SIGTERM', () => {
+            console.log('SIGTERM received, shutting down gracefully');
+            server.close(() => {
+                console.log('Server closed');
+                process.exit(0);
+            });
+        });
+        
     } catch (error) {
-        console.error('Failed to start server:', error);
+        console.error('❌ Failed to start server:', error);
         process.exit(1);
     }
 };
