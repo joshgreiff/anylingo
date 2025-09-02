@@ -95,6 +95,11 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
+// Simple health check that responds immediately
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
     res.json({ 
@@ -359,7 +364,7 @@ app.use((err, req, res, next) => {
 });
 
 // 404 handler
-app.use('*', (req, res) => {
+app.use('/*', (req, res) => {
     res.status(404).json({ error: 'Route not found' });
 });
 
