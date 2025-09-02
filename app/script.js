@@ -151,63 +151,43 @@ function initVoices() {
 // Set up event listeners
 function setupEventListeners() {
     // Navigation buttons
-    document.getElementById('createLessonBtn').addEventListener('click', () => showSection('createLesson'));
-    document.getElementById('contentBtn').addEventListener('click', () => showSection('content'));
-    document.getElementById('readAloudBtn').addEventListener('click', () => showSection('readAloud'));
-    document.getElementById('translateBtn').addEventListener('click', () => showSection('translate'));
-    document.getElementById('drillsBtn').addEventListener('click', () => showSection('drills'));
-    document.getElementById('recordBtn').addEventListener('click', () => showSection('record'));
+    const createLessonBtn = document.getElementById('createLessonBtn');
+    if (createLessonBtn) {
+        createLessonBtn.addEventListener('click', () => showSection('createLesson'));
+    }
     
-    // Create lesson buttons
-    document.getElementById('saveLessonBtn').addEventListener('click', saveLesson);
-    document.getElementById('createNewLessonBtn').addEventListener('click', createNewLesson);
-    document.getElementById('createNewLessonFromContentBtn').addEventListener('click', createNewLesson);
+    const contentBtn = document.getElementById('contentBtn');
+    if (contentBtn) {
+        contentBtn.addEventListener('click', () => showSection('content'));
+    }
     
-    // ReadAloud controls
-    document.getElementById('startReadingBtn').addEventListener('click', startReading);
-    document.getElementById('pauseReadingBtn').addEventListener('click', pauseReading);
-    document.getElementById('continueReadingBtn').addEventListener('click', continueReading);
-    document.getElementById('stopReadingBtn').addEventListener('click', stopReading);
-    document.getElementById('loopReadingBtn').addEventListener('click', toggleLoop);
+    const readAloudBtn = document.getElementById('readAloudBtn');
+    if (readAloudBtn) {
+        readAloudBtn.addEventListener('click', () => showSection('readAloud'));
+    }
     
-    // Rate control
-    document.getElementById('rateRange').addEventListener('input', updateRate);
+    const translateBtn = document.getElementById('translateBtn');
+    if (translateBtn) {
+        translateBtn.addEventListener('click', () => showSection('translate'));
+    }
     
-    // Translation
-    document.getElementById('translateBtn').addEventListener('click', translateContent);
+    const drillsBtn = document.getElementById('drillsBtn');
+    if (drillsBtn) {
+        drillsBtn.addEventListener('click', () => showSection('drills'));
+    }
     
-    // Drill buttons
-    document.getElementById('drill1Btn').addEventListener('click', () => showDrillInstructions('drill1'));
-    document.getElementById('drill2Btn').addEventListener('click', () => showDrillInstructions('drill2'));
-    document.getElementById('drill3Btn').addEventListener('click', () => showDrillInstructions('drill3'));
-    document.getElementById('drill4Btn').addEventListener('click', () => showDrillInstructions('drill4'));
-    document.getElementById('drill5Btn').addEventListener('click', () => showDrillInstructions('drill5'));
+    const recordBtn = document.getElementById('recordBtn');
+    if (recordBtn) {
+        recordBtn.addEventListener('click', () => showSection('record'));
+    }
     
-    // Drill 1 controls
-    document.getElementById('startDrill1Btn').addEventListener('click', startDrill1);
+    const homeBtn = document.getElementById('homeBtn');
+    if (homeBtn) {
+        homeBtn.addEventListener('click', () => showSection('home'));
+    }
     
-    // Drill 2 controls
-    document.getElementById('highlightTextBtn').addEventListener('click', enableTextHighlighting);
-    document.getElementById('clearHighlightsBtn').addEventListener('click', clearHighlights);
-    
-    // Drill 3 controls
-    document.getElementById('startDrill3Btn').addEventListener('click', startDrill3);
-    
-    // Drill 4 controls
-    document.getElementById('startRecordingBtn').addEventListener('click', startDrillRecording);
-    document.getElementById('stopRecordingBtn').addEventListener('click', stopDrillRecording);
-    document.getElementById('playRecordingBtn').addEventListener('click', playDrillRecording);
-    document.getElementById('saveDrillRecordingBtn').addEventListener('click', saveDrillRecording);
-    document.getElementById('reRecordBtn').addEventListener('click', resetDrillRecording);
-    
-    // Main recording controls
-    document.getElementById('startMainRecordingBtn').addEventListener('click', startMainRecording);
-    document.getElementById('stopMainRecordingBtn').addEventListener('click', stopMainRecording);
-    document.getElementById('playMainRecordingBtn').addEventListener('click', playMainRecording);
-    document.getElementById('saveRecordingBtn').addEventListener('click', saveRecording);
-    
-    // Setup text selection for translation
-    setupTextSelection();
+    // Initialize lesson form
+    initializeLessonForm();
 }
 
 // Show a specific section
@@ -389,10 +369,20 @@ function updateContentSection() {
     const selectedLessonTitle = document.getElementById('selectedLessonTitle');
     const selectedLessonContent = document.getElementById('selectedLessonContent');
     
+    if (!lessonsList) {
+        console.log('Lessons list element not found');
+        return;
+    }
+    
     if (Object.keys(lessons).length === 0) {
         lessonsList.innerHTML = '<p class="text-gray-500">No lessons found. Create a new lesson to get started.</p>';
-        selectedLessonTitle.textContent = 'Select a Lesson';
-        selectedLessonContent.innerHTML = '<p class="text-gray-500 text-center">Select a lesson from the list to view its content</p>';
+        
+        if (selectedLessonTitle) {
+            selectedLessonTitle.textContent = 'Select a Lesson';
+        }
+        if (selectedLessonContent) {
+            selectedLessonContent.innerHTML = '<p class="text-gray-500 text-center">Select a lesson from the list to view its content</p>';
+        }
         return;
     }
     
@@ -417,7 +407,7 @@ function updateContentSection() {
                     </button>
                     <button 
                         onclick="deleteLesson('${lesson.id}')" 
-                        class="px-2 py-1 text-xs btn-red text-white rounded transition-colors"
+                        class="px-2 py-1 text-xs bg-red-600 text-white rounded transition-colors"
                         title="Delete lesson"
                     >
                         Delete
@@ -427,12 +417,6 @@ function updateContentSection() {
         `;
         lessonsList.appendChild(lessonItem);
     });
-    
-    // Show current lesson if available
-    if (currentLesson) {
-        selectedLessonTitle.textContent = currentLesson.title;
-        selectedLessonContent.innerHTML = `<pre class="whitespace-pre-wrap">${currentLesson.content}</pre>`;
-    }
 }
 
 // Select a lesson
@@ -2925,21 +2909,36 @@ async function deleteLessonFromDatabase(lessonId) {
 // Initialize lesson form
 function initializeLessonForm() {
     const lessonForm = document.getElementById('lessonForm');
+    console.log('Initializing lesson form:', lessonForm);
+    
     if (lessonForm) {
         lessonForm.addEventListener('submit', handleLessonSubmission);
+        console.log('Lesson form event listener added successfully');
+    } else {
+        console.error('Lesson form not found in DOM');
     }
 }
 
 // Handle lesson form submission
 async function handleLessonSubmission(e) {
+    console.log('Lesson form submission handler called');
     e.preventDefault();
+    e.stopPropagation();
     
     const formData = new FormData(e.target);
     const title = formData.get('title').trim();
     const content = formData.get('content').trim();
+    const targetLanguage = formData.get('targetLanguage');
+    
+    console.log('Form data:', { title, content, targetLanguage });
     
     if (!title || !content) {
         showMessage('createLessonMessage', 'Please enter both title and content.', 'error');
+        return;
+    }
+    
+    if (!targetLanguage) {
+        showMessage('createLessonMessage', 'Please select a target language.', 'error');
         return;
     }
     
@@ -2947,32 +2946,38 @@ async function handleLessonSubmission(e) {
     const lessonData = {
         title: title,
         content: content,
-        targetLanguage: formData.get('targetLanguage'),
+        targetLanguage: targetLanguage,
         sourceLanguage: currentSourceLanguage || 'auto',
         status: 'draft'
     };
+    
+    console.log('Saving lesson data:', lessonData);
     
     // Save lesson
     const savedLesson = await saveLessonToDatabase(lessonData);
     
     if (savedLesson) {
+        console.log('Lesson saved successfully:', savedLesson);
+        
         // Update local lessons object
         lessons[savedLesson.id] = savedLesson;
         
         // Update UI
         currentLesson = savedLesson;
-        showSection('translate');
-        loadLesson(savedLesson);
-        
-        // Clear form
-        e.target.reset();
         
         // Show success message
         showMessage('createLessonMessage', 'Lesson created and saved successfully!', 'success');
         
         // Refresh lessons list
         displayLessons();
+        
+        // Clear form
+        e.target.reset();
+        
+        // Stay on create lesson section instead of redirecting
+        console.log('Lesson creation complete, staying on create lesson section');
     } else {
+        console.error('Failed to save lesson');
         showMessage('createLessonMessage', 'Failed to save lesson. Please try again.', 'error');
     }
 }
