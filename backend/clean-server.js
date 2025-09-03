@@ -334,26 +334,53 @@ app.get('/api/auth/me', async (req, res) => {
     
     const token = authHeader.substring(7);
     
-    // For now, accept any mock token and return a mock user
-    if (token.startsWith('mock_jwt_token_')) {
-        const mockUser = {
-            id: 'user_123',
-            firstName: 'Test',
-            lastName: 'User',
-            email: 'test@example.com',
-            subscription: {
-                status: 'lifetime',
-                startDate: new Date(),
-                endDate: null
+    try {
+        if (dbConnected) {
+            // In a real app, you would validate the JWT token here
+            // For now, we'll check if the token exists in our system
+            // This is a simplified approach - in production you'd use proper JWT validation
+            
+            // For mock tokens, we'll try to extract user info
+            if (token.startsWith('mock_jwt_token_')) {
+                // This is a mock token from registration/login
+                // We should have the user data stored somewhere
+                // For now, return an error asking user to log in again
+                return res.status(401).json({ 
+                    error: 'Mock token expired. Please log in again.',
+                    code: 'TOKEN_EXPIRED'
+                });
             }
-        };
-        
-        res.json({
-            user: mockUser,
-            message: 'User authenticated successfully'
-        });
-    } else {
-        res.status(401).json({ error: 'Invalid token' });
+            
+            // For real tokens, you would decode and validate them
+            // For now, return an error
+            return res.status(401).json({ 
+                error: 'Invalid token format',
+                code: 'INVALID_TOKEN'
+            });
+            
+        } else {
+            // Database not connected - return mock user for testing
+            console.log('Database not connected, returning mock user');
+            const mockUser = {
+                id: 'mock_user_' + Date.now(),
+                firstName: 'Test',
+                lastName: 'User',
+                email: 'test@example.com',
+                subscription: {
+                    status: 'lifetime',
+                    startDate: new Date(),
+                    endDate: null
+                }
+            };
+            
+            res.json({
+                user: mockUser,
+                message: 'User authenticated successfully (mock)'
+            });
+        }
+    } catch (error) {
+        console.error('Auth check error:', error);
+        res.status(500).json({ error: 'Authentication failed', details: error.message });
     }
 });
 

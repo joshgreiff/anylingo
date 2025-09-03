@@ -1063,6 +1063,22 @@ function updateTranslateSection() {
     const originalTextElement = document.getElementById('originalText');
     const translateBtn = document.getElementById('translateBtn');
     
+    // Check if elements exist before using them
+    if (!titleElement) {
+        console.log('translateLessonTitle element not found');
+        return;
+    }
+    
+    if (!originalTextElement) {
+        console.log('originalText element not found');
+        return;
+    }
+    
+    if (!translateBtn) {
+        console.log('translateBtn element not found');
+        return;
+    }
+    
     if (!currentLesson) {
         titleElement.textContent = 'No lesson loaded';
         originalTextElement.innerHTML = '<p class="text-gray-500 text-center">No lesson content available</p>';
@@ -1075,7 +1091,11 @@ function updateTranslateSection() {
     translateBtn.disabled = false;
     
     // Setup text selection for translation
-    setupTextSelection();
+    try {
+        setupTextSelection();
+    } catch (error) {
+        console.log('Error setting up text selection:', error);
+    }
 }
 
 // Translate content
@@ -1549,6 +1569,17 @@ function updateDrillsSection() {
     const titleElement = document.getElementById('drillsLessonTitle');
     const contentElement = document.getElementById('drillsContent');
     
+    // Check if elements exist before using them
+    if (!titleElement) {
+        console.log('drillsLessonTitle element not found');
+        return;
+    }
+    
+    if (!contentElement) {
+        console.log('drillsContent element not found');
+        return;
+    }
+    
     if (!currentLesson) {
         titleElement.textContent = 'No lesson loaded';
         contentElement.innerHTML = '<p class="text-gray-500 text-center">No lesson content available</p>';
@@ -1562,6 +1593,12 @@ function updateDrillsSection() {
 // Update record section
 function updateRecordSection() {
     const titleElement = document.getElementById('recordLessonTitle');
+    
+    // Check if element exists before using it
+    if (!titleElement) {
+        console.log('recordLessonTitle element not found');
+        return;
+    }
     
     if (!currentLesson) {
         titleElement.textContent = 'No lesson loaded';
