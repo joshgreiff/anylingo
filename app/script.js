@@ -2773,6 +2773,8 @@ async function saveLessonToDatabase(lessonData) {
             return null;
         }
 
+        console.log('Saving lesson for user:', currentUser.id);
+
         const response = await fetch(`${API_URL}/api/lessons`, {
             method: 'POST',
             headers: {
@@ -2786,6 +2788,8 @@ async function saveLessonToDatabase(lessonData) {
         });
 
         if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('Backend error:', errorData);
             throw new Error(`Failed to save lesson: ${response.statusText}`);
         }
 
@@ -2824,6 +2828,8 @@ async function loadLessonsFromDatabase() {
             return loadLessonsFromLocalStorage();
         }
 
+        console.log('Loading lessons for user:', currentUser.id);
+
         const response = await fetch(`${API_URL}/api/lessons/${currentUser.id}`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('anylingo_token')}`
@@ -2831,6 +2837,8 @@ async function loadLessonsFromDatabase() {
         });
 
         if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('Backend error loading lessons:', errorData);
             throw new Error(`Failed to load lessons: ${response.statusText}`);
         }
 
@@ -2927,6 +2935,11 @@ async function handleLessonSubmission(e) {
     console.log('Lesson form submission handler called');
     e.preventDefault();
     e.stopPropagation();
+    
+    // Check if user is authenticated
+    if (!canAccessLessons()) {
+        return;
+    }
     
     const formData = new FormData(e.target);
     const title = formData.get('title').trim();
@@ -3148,6 +3161,10 @@ async function checkUserAuth() {
         if (response.ok) {
             const data = await response.json();
             currentUser = data.user;
+            
+            // Store the complete user data including the proper ID
+            localStorage.setItem('anylingo_user_data', JSON.stringify(currentUser));
+            
             console.log('User authenticated:', currentUser);
             
             // Update UI to show logged-in state
@@ -3217,4 +3234,20 @@ function updateUserInterface() {
         
         console.log('User interface updated for guest user');
     }
+}
+
+// Handle login redirect
+function redirectToLogin() {
+    console.log('Redirecting to login page');
+    window.location.href = '/signup.html';
+}
+
+// Check if user can access lesson features
+function canAccessLessons() {
+    if (!currentUser || !currentUser.id) {
+        console.log('User not authenticated, redirecting to login');
+        redirectToLogin();
+        return false;
+    }
+    return true;
 }
