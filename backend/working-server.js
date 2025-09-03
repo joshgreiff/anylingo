@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3001;
 
 // Basic middleware
 app.use(cors({
@@ -51,7 +51,7 @@ app.get('/api/subscriptions/plans', (req, res) => {
     });
 });
 
-// Mock auth endpoint
+// Mock auth endpoints
 app.post('/api/auth/register', (req, res) => {
     res.json({
         message: 'Registration successful',
@@ -62,8 +62,51 @@ app.post('/api/auth/register', (req, res) => {
                 status: 'trial',
                 endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
             }
-        }
+        },
+        token: 'mock-jwt-token-' + Date.now()
     });
+});
+
+app.post('/api/auth/login', (req, res) => {
+    res.json({
+        message: 'Login successful',
+        user: {
+            id: 'test-user-id',
+            email: req.body.loginEmail,
+            subscription: {
+                status: 'trial',
+                endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+            }
+        },
+        token: 'mock-jwt-token-' + Date.now()
+    });
+});
+
+// Subscription endpoints
+app.post('/api/subscriptions/validate-promo', (req, res) => {
+    const { promoCode } = req.body;
+    
+    // Mock promo code validation
+    if (promoCode && promoCode.toLowerCase().includes('test')) {
+        res.json({ valid: true, message: 'Promo code is valid' });
+    } else {
+        res.json({ valid: false, error: 'Invalid promo code' });
+    }
+});
+
+app.post('/api/subscriptions/apply-promo', (req, res) => {
+    const { promoCode } = req.body;
+    
+    // Mock promo code application
+    if (promoCode && promoCode.toLowerCase().includes('test')) {
+        res.json({ 
+            success: true, 
+            message: 'Promo code applied successfully',
+            discount: '50% off first month'
+        });
+    } else {
+        res.status(400).json({ error: 'Invalid promo code' });
+    }
 });
 
 // 404 handler

@@ -4,8 +4,8 @@
   "description": "AnyLingo Backend API",
   "main": "server.js",
   "scripts": {
-    "start": "node clean-server.js",
-    "dev": "nodemon clean-server.js",
+    "start": "node working-server.js",
+    "dev": "nodemon working-server.js",
     "hash-passwords": "node hash-existing-passwords.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

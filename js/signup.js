@@ -3,6 +3,17 @@
 const API_URL = 'https://anylingo-production.up.railway.app';
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Check if we should scroll to login section
+    if (window.location.hash === '#login') {
+        console.log('Scrolling to login section...');
+        setTimeout(() => {
+            const loginSection = document.getElementById('login');
+            if (loginSection) {
+                loginSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 100);
+    }
+
     const signupForm = document.getElementById('signup-form');
     const loginForm = document.getElementById('login-form');
     const promoCodeInput = document.getElementById('promoCode');
@@ -12,7 +23,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     if (loginForm) {
+        console.log('Login form found, adding event listener');
         loginForm.addEventListener('submit', handleLogin);
+    } else {
+        console.error('Login form not found!');
     }
     
     if (promoCodeInput) {
@@ -187,9 +201,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     async function handleLogin(e) {
+        console.log('Login form submitted!');
         e.preventDefault();
         
         const formData = new FormData(e.target);
+        console.log('Form data:', Object.fromEntries(formData));
+        
         const submitBtn = e.target.querySelector('button[type="submit"]');
         const originalText = submitBtn.textContent;
         
