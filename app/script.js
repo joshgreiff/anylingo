@@ -238,11 +238,35 @@ function updateSection(sectionName) {
 
 // Update all sections
 function updateAllSections() {
-    updateContentSection();
-    updateReadAloudSection();
-    updateTranslateSection();
-    updateDrillsSection();
-    updateRecordSection();
+    try {
+        updateContentSection();
+    } catch (error) {
+        console.log('Error updating content section:', error);
+    }
+    
+    try {
+        updateReadAloudSection();
+    } catch (error) {
+        console.log('Error updating read aloud section:', error);
+    }
+    
+    try {
+        updateTranslateSection();
+    } catch (error) {
+        console.log('Error updating translate section:', error);
+    }
+    
+    try {
+        updateDrillsSection();
+    } catch (error) {
+        console.log('Error updating drills section:', error);
+    }
+    
+    try {
+        updateRecordSection();
+    } catch (error) {
+        console.log('Error updating record section:', error);
+    }
 }
 
 // Load lessons from localStorage
@@ -403,7 +427,7 @@ function updateContentSection() {
                 <div class="flex space-x-2 ml-3">
                     <button 
                         onclick="editLesson('${lesson.id}')" 
-                        class="px-2 py-1 text-xs btn-blue text-white rounded transition-colors"
+                        class="px-2 py-1 text-xs bg-blue-600 text-white rounded transition-colors"
                         title="Edit lesson"
                     >
                         Edit
@@ -432,24 +456,42 @@ function selectLesson(lessonId) {
 // Edit a lesson
 function editLesson(lessonId) {
     const lesson = lessons[lessonId];
-    if (lesson) {
-        // Store the lesson ID being edited
-        window.editingLessonId = lessonId;
-        
-        // Populate the form
-        document.getElementById('lessonTitle').value = lesson.title;
-        document.getElementById('lessonContent').value = lesson.content;
-        
-        // Update the form button text
-        const saveButton = document.getElementById('saveLessonBtn');
-        saveButton.textContent = 'Update Lesson';
-        
-        // Clear any existing messages
-        document.getElementById('createLessonMessage').classList.add('hidden');
-        
-        // Show create lesson form
-        showSection('createLesson');
+    if (!lesson) {
+        console.error('Lesson not found:', lessonId);
+        return;
     }
+    
+    console.log('Editing lesson:', lesson);
+    
+    // Store the lesson ID being edited
+    window.editingLessonId = lessonId;
+    
+    // Populate the form - check if elements exist first
+    const titleElement = document.getElementById('lessonTitle');
+    const contentElement = document.getElementById('lessonContent');
+    const messageElement = document.getElementById('createLessonMessage');
+    
+    if (titleElement) {
+        titleElement.value = lesson.title;
+    } else {
+        console.error('Lesson title element not found');
+    }
+    
+    if (contentElement) {
+        contentElement.value = lesson.content;
+    } else {
+        console.error('Lesson content element not found');
+    }
+    
+    // Clear any existing messages
+    if (messageElement) {
+        messageElement.classList.add('hidden');
+    }
+    
+    // Show create lesson form
+    showSection('createLesson');
+    
+    console.log('Lesson form populated for editing');
 }
 
 // Delete a lesson
