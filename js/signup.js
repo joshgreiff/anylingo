@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 showSuccess('Account created successfully! Promo code applied. Redirecting to app...');
                 localStorage.setItem('anylingo_token', userData.token);
                 setTimeout(() => {
-                    window.location.href = '../app/';
+                    window.location.href = '/app/';
                 }, 2000);
             } else {
                 showSuccess('Account created successfully! Redirecting to payment...');
@@ -219,7 +219,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showLoginSuccess('Login successful! Redirecting to app...');
             localStorage.setItem('anylingo_token', userData.token);
             setTimeout(() => {
-                window.location.href = '../app/';
+                window.location.href = '/app/';
             }, 2000);
         } catch (error) {
             showLoginError(error.message || 'Failed to login. Please check your credentials.');
