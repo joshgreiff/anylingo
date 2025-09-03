@@ -106,11 +106,14 @@ document.addEventListener('DOMContentLoaded', function() {
         initializeSpeechSynthesis();
     }
     
-    // Initialize lesson form
-    initializeLessonForm();
-    
-    // Load existing lessons
-    loadExistingLessons();
+    // Check user authentication
+    checkUserAuth().then(async () => {
+        // Initialize lesson form
+        initializeLessonForm();
+        
+        // Load existing lessons
+        loadExistingLessons();
+    });
 });
 
 // Initialize voices for speech synthesis
@@ -3085,5 +3088,133 @@ async function deleteLesson(lessonId) {
         showMessage('contentMessage', 'Lesson deleted successfully!', 'success');
     } else {
         showMessage('contentMessage', 'Lesson deleted from local storage.', 'info');
+    }
+}
+
+// Initialize speech synthesis
+function initializeSpeechSynthesis() {
+    if ('speechSynthesis' in window) {
+        speechSynthesisSupported = true;
+        synth = window.speechSynthesis;
+        
+        // Load available voices
+        const loadVoices = () => {
+            const voices = synth.getVoices();
+            const voiceSelect = document.getElementById('voiceSelect');
+            if (voiceSelect) {
+                voiceSelect.innerHTML = '';
+                voices.forEach(voice => {
+                    const option = document.createElement('option');
+                    option.value = voice.name;
+                    option.textContent = `${voice.name} (${voice.lang})`;
+                    voiceSelect.appendChild(option);
+                });
+            }
+        };
+        
+        // Chrome loads voices asynchronously
+        if (synth.onvoiceschanged !== undefined) {
+            synth.onvoiceschanged = loadVoices;
+        }
+        
+        loadVoices();
+        console.log('Speech synthesis initialized');
+    } else {
+        speechSynthesisSupported = false;
+        console.log('Speech synthesis not supported');
+    }
+}
+
+// Check user authentication status
+async function checkUserAuth() {
+    const token = localStorage.getItem('anylingo_token');
+    const userData = localStorage.getItem('anylingo_user_data');
+    
+    if (!token) {
+        console.log('No token found, user not logged in');
+        currentUser = null;
+        return false;
+    }
+    
+    try {
+        // Verify token with backend
+        const response = await fetch(`${API_URL}/api/auth/me`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            currentUser = data.user;
+            console.log('User authenticated:', currentUser);
+            
+            // Update UI to show logged-in state
+            updateUserInterface();
+            return true;
+        } else {
+            console.log('Token invalid, clearing user data');
+            localStorage.removeItem('anylingo_token');
+            localStorage.removeItem('anylingo_user_data');
+            currentUser = null;
+            return false;
+        }
+    } catch (error) {
+        console.error('Auth check failed:', error);
+        // Fallback to stored user data if network fails
+        if (userData) {
+            try {
+                currentUser = JSON.parse(userData);
+                console.log('Using stored user data:', currentUser);
+                return true;
+            } catch (e) {
+                console.error('Failed to parse stored user data');
+                currentUser = null;
+                return false;
+            }
+        }
+        currentUser = null;
+        return false;
+    }
+}
+
+// Update user interface based on auth status
+function updateUserInterface() {
+    const userNameElement = document.getElementById('userName');
+    const userMenu = document.getElementById('userMenu');
+    const userMenuBtn = document.getElementById('userMenuBtn');
+    const loginBtn = document.getElementById('loginBtn');
+    
+    if (currentUser) {
+        // User is logged in
+        if (userNameElement) {
+            userNameElement.textContent = currentUser.firstName || 'User';
+        }
+        
+        // Show user menu, hide login button
+        if (userMenuBtn) {
+            userMenuBtn.classList.remove('hidden');
+        }
+        if (loginBtn) {
+            loginBtn.classList.add('hidden');
+        }
+        
+        console.log('User interface updated for logged-in user');
+    } else {
+        // User is not logged in
+        if (userNameElement) {
+            userNameElement.textContent = 'Guest';
+        }
+        
+        // Hide user menu, show login button
+        if (userMenuBtn) {
+            userMenuBtn.classList.add('hidden');
+        }
+        if (loginBtn) {
+            loginBtn.classList.remove('hidden');
+        }
+        
+        console.log('User interface updated for guest user');
     }
 }
