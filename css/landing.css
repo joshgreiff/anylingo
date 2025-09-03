@@ -179,4 +179,17 @@ a:focus {
     .no-print {
         display: none !important;
     }
+}
+
+/* Debug styles for login section */
+#login {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    border: 2px solid red !important; /* Temporary debug border */
+}
+
+/* Ensure login section is always visible */
+#login:not([style*="display: none"]) {
+    display: block !important;
 } 

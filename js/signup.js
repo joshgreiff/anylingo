@@ -9,9 +9,23 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => {
             const loginSection = document.getElementById('login');
             if (loginSection) {
+                console.log('Login section found, scrolling to it...');
                 loginSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                console.error('Login section not found!');
             }
         }, 100);
+    }
+
+    // Debug: Check if login section exists and is visible
+    const loginSection = document.getElementById('login');
+    if (loginSection) {
+        console.log('Login section found on page load');
+        console.log('Login section display style:', window.getComputedStyle(loginSection).display);
+        console.log('Login section visibility:', window.getComputedStyle(loginSection).visibility);
+        console.log('Login section opacity:', window.getComputedStyle(loginSection).opacity);
+    } else {
+        console.error('Login section not found on page load!');
     }
 
     const signupForm = document.getElementById('signup-form');
