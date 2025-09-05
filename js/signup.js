@@ -1,13 +1,28 @@
 // AnyLingo Signup Page JavaScript
 
-const API_URL = 'https://anylingobackend.vercel.app';
+const API_URL = 'https://anylingo-production.up.railway.app';
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Check if we should scroll to login section
+    if (window.location.hash === '#login') {
+        setTimeout(() => {
+            const loginSection = document.getElementById('login');
+            if (loginSection) {
+                loginSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 100);
+    }
+
     const signupForm = document.getElementById('signup-form');
     const promoCodeInput = document.getElementById('promoCode');
     
     if (signupForm) {
         signupForm.addEventListener('submit', handleSignup);
+    }
+    
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLogin);
     }
 
     // Promo code validation
@@ -103,6 +118,35 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Handle login form submission
+    async function handleLogin(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        
+        // Show loading state
+        submitBtn.textContent = 'Logging In...';
+        submitBtn.disabled = true;
+        
+        try {
+            const userData = await loginUser(formData);
+            showLoginSuccess('Login successful! Redirecting to app...');
+            localStorage.setItem('anylingo_token', userData.token);
+            setTimeout(() => {
+                window.location.href = '/app/';
+            }, 2000);
+        } catch (error) {
+            showLoginError(error.message || 'Failed to login. Please check your credentials.');
+            console.error('Login error:', error);
+        } finally {
+            // Reset button
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+        }
+    }
+
     // Handle signup form submission
     async function handleSignup(e) {
         e.preventDefault();
@@ -161,6 +205,21 @@ document.addEventListener('DOMContentLoaded', function() {
             submitButton.textContent = originalText;
             submitButton.disabled = false;
         }
+    }
+
+    // Login user API call
+    async function loginUser(formData) {
+        const response = await fetch(`${API_URL}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email: formData.get('loginEmail'),
+                password: formData.get('loginPassword')
+            })
+        });
+        const data = await response.json();
+        if (!response.ok) { throw new Error(data.error || 'Failed to login'); }
+        return data;
     }
 
     // Create account API call
@@ -262,6 +321,26 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => {
             errorContainer.remove();
         }, 5000);
+    }
+    
+    // Show login success message
+    function showLoginSuccess(message) {
+        const messageElement = document.getElementById('loginMessage');
+        if (messageElement) {
+            messageElement.textContent = message;
+            messageElement.className = 'mt-4 p-3 rounded-md bg-green-100 text-green-700';
+            messageElement.classList.remove('hidden');
+        }
+    }
+    
+    // Show login error message
+    function showLoginError(message) {
+        const messageElement = document.getElementById('loginMessage');
+        if (messageElement) {
+            messageElement.textContent = message;
+            messageElement.className = 'mt-4 p-3 rounded-md bg-red-100 text-red-700';
+            messageElement.classList.remove('hidden');
+        }
     }
 
     // Real-time password strength indicator
