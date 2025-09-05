@@ -1,111 +1,155 @@
-# AnyLingo - Language Learning Application
+# AnyLingo Landing Page
 
-A comprehensive web-based language learning application that helps users develop fluency in multiple foreign languages.
+This is the landing page and subscription system for AnyLingo™, a revolutionary language learning platform.
+
+## Structure
+
+```
+landing/
+├── index.html          # Main landing page
+├── signup.html         # Signup page with payment integration
+├── css/
+│   └── landing.css     # Custom styles for landing page
+├── js/
+│   ├── landing.js      # Landing page functionality
+│   └── signup.js       # Signup form handling
+├── app/                # Your existing AnyLingo application
+│   ├── index.html
+│   ├── script.js
+│   ├── styles.css
+│   └── config.js
+└── README.md           # This file
+```
 
 ## Features
 
+### Landing Page (`index.html`)
+- **Hero Section**: Clear value proposition and call-to-action
+- **Features Section**: Three revolutionary innovations
+- **How It Works**: Subconscious training explanation
+- **Benefits**: 5x faster learning, etc.
+- **Pricing**: Free trial with $19.99/month after
+- **Responsive Design**: Works on all devices
 
-- **Create Lessons**: Create new language lessons by pasting text from any source
-- **Content Management**: Access, view, edit, and delete saved lessons
-- **ReadAloud**: Text-to-speech functionality with voice, speed, and playback controls
-- **Translation**: Translate lessons between multiple languages (sentences, paragraphs, or entire lessons)
-- **Drill Exercises**: Interactive drills to improve language fluency and comprehension
-- **Recording**: Record yourself reading lessons aloud and assess pronunciation
+### Signup Page (`signup.html`)
+- **User Registration**: Name, email, password, target language
+- **Trial Information**: 7-day free trial details
+- **Payment Methods**: Square (credit cards) and Speed (Bitcoin Lightning)
+- **Form Validation**: Real-time validation and error handling
+- **Auto-save**: Form data saved locally
 
-## Project Structure
+## Next Steps
 
-```
-anylingo-app/
-├── index.html          # Main HTML file
-├── styles.css          # Custom CSS styles
-├── script.js           # Main JavaScript application logic
-├── README.md           # This file
-└── body_only.html      # Extracted HTML body content (development file)
-```
+### Phase 1: Backend Setup (Recommended)
+1. **Node.js Backend**
+   - User authentication system
+   - Database setup (PostgreSQL/MongoDB)
+   - API endpoints for user management
 
-## Technologies Used
+2. **Payment Integration**
+   - Square API integration for credit card payments
+   - Speed API integration for Bitcoin Lightning
+   - Subscription management system
 
-- **HTML5**: Semantic markup and structure
-- **CSS3**: Custom styles with Tailwind CSS framework
-- **JavaScript (ES6+)**: Application logic and interactivity
-- **Web APIs**: 
-  - Speech Synthesis API for text-to-speech
-  - MediaRecorder API for audio recording
-  - LocalStorage API for data persistence
-  - LibreTranslate API for translation services
+3. **User Management**
+   - User registration and login
+   - Trial period management
+   - Subscription status tracking
 
-## Getting Started
+### Phase 2: Authentication System
+1. **Email/Password Authentication**
+   - JWT token-based authentication
+   - Password hashing with bcrypt
+   - Session management
 
-1. Open `index.html` in a modern web browser
-2. The application will load with all features available
-3. Click on any navigation button to access different features
+2. **Optional Nostr Integration**
+   - Nostr authentication for advanced users
+   - Decentralized identity support
 
-## Browser Compatibility
+### Phase 3: Payment Processing
+1. **Square Integration**
+   - Credit card payment processing
+   - Subscription management
+   - Webhook handling
 
-- Chrome/Chromium (recommended)
-- Firefox
-- Safari
-- Edge
+2. **Speed Integration**
+   - Bitcoin Lightning payments
+   - Real-time payment confirmation
+   - Multi-currency support
 
-**Note**: Some features like speech synthesis and recording require HTTPS in production environments.
+### Phase 4: App Integration
+1. **User Access Control**
+   - Trial period restrictions
+   - Subscription-based feature access
+   - User data persistence
 
-## Features Overview
+2. **Seamless Experience**
+   - Single sign-on between landing and app
+   - User preference synchronization
+   - Progress tracking
 
-### Create Lessons
-- Paste text from any source
-- Preserves original text formatting
-- Auto-saves lessons to local storage
+## Technical Stack
 
-### Content Management
-- View all saved lessons
-- Edit existing lessons
-- Delete unwanted lessons
-- Load lessons for use in other features
+### Frontend
+- **HTML5/CSS3**: Semantic markup and modern styling
+- **Tailwind CSS**: Utility-first CSS framework
+- **Vanilla JavaScript**: No framework dependencies
+- **Responsive Design**: Mobile-first approach
 
-### ReadAloud
-- Text-to-speech with multiple voice options
-- Adjustable reading speed
-- Play, pause, stop, and loop controls
-- Voice selection based on detected language
+### Backend (To be implemented)
+- **Node.js**: Server-side JavaScript
+- **Express.js**: Web application framework
+- **PostgreSQL**: Relational database
+- **JWT**: Authentication tokens
+- **Square API**: Payment processing
+- **Speed API**: Bitcoin Lightning payments
 
-### Translation
-- Support for 12+ languages
-- Three translation modes: sentence, paragraph, or full lesson
-- Uses LibreTranslate API for accurate translations
-- Auto-language detection
+## Deployment
 
-### Drill Exercises
-- 5 different drill types for varied practice
-- Text highlighting for focus areas
-- Recording capabilities within drills
-- Interactive exercises for comprehension
+### Current Setup
+- Static file hosting (Netlify, Vercel, or GitHub Pages)
+- No backend required for landing page
 
-### Recording
-- Record yourself reading lessons
-- Playback recordings for self-assessment
-- Save recordings for later review
-- Visual feedback during recording
+### Future Setup
+- Full-stack deployment (Vercel, Railway, or Heroku)
+- Database hosting (Supabase, Railway, or AWS)
+- CDN for static assets
 
 ## Development
 
-To modify the application:
+### Local Development
+1. Clone the repository
+2. Navigate to the `landing` directory
+3. Open `index.html` in a web browser
+4. For development server: `python3 -m http.server 8000`
 
-1. Edit `index.html` for structure changes
-2. Modify `styles.css` for styling updates
-3. Update `script.js` for functionality changes
+### Testing
+- Test signup form validation
+- Test responsive design on different devices
+- Test payment flow (when implemented)
 
-The application uses vanilla JavaScript with no build process required - simply edit and refresh the browser.
+## Branding
 
-## Data Storage
+### Colors
+- **Primary Blue**: #3B82F6 (Blue-600)
+- **Secondary Purple**: #8B5CF6 (Purple-600)
+- **Success Green**: #10B981 (Green-500)
+- **Warning Orange**: #F59E0B (Yellow-500)
+- **Error Red**: #EF4444 (Red-500)
 
-All lesson data is stored locally in the browser's localStorage. Data persists between sessions but is specific to each browser/device.
+### Typography
+- **Font Family**: Inter (Google Fonts)
+- **Weights**: 300, 400, 500, 600, 700, 800
 
-## API Dependencies
+### Logo
+- **Text**: AnyLingo™
+- **Color**: Blue-600 (#3B82F6)
+- **Font**: Inter Bold
 
-- **Tailwind CSS**: Loaded from CDN for styling
-- **LibreTranslate**: Used for translation services (https://translate.argosopentech.com/)
+## Contact
 
-## License
+For questions about the landing page or subscription system, contact the development team.
 
-This project is provided as-is for educational and personal use.
+---
 
+**AnyLingo™** - Revolutionary language learning through AI-driven subconscious training 

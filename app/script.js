@@ -1,25 +1,13 @@
 // Global variables
 let currentSection = 'home';
 let currentLesson = null;
-let currentUser = null;
 let lessons = {};
 let sentenceMappings = []; // Store mappings between original and translated sentences
-let isTranslating = false;
-let translationMode = 'sentence'; // 'sentence' or 'word'
-let currentTargetLanguage = 'es';
-let currentSourceLanguage = 'auto';
-let speechSynthesis = window.speechSynthesis;
-let currentUtterance = null;
-let isPlaying = false;
-let currentWordIndex = 0;
-let currentSentenceIndex = 0;
-let sentences = [];
-let translatedSentences = [];
-let wordTimings = [];
 
 // Speech synthesis variables
 let synth = null;
 let utterance = null;
+let isPlaying = false;
 let isLooping = false;
 let speechSynthesisSupported = false;
 let isPaused = false; // Track pause state properly
@@ -35,6 +23,8 @@ let userPreferences = {
 // Text highlighting variables
 let currentHighlightedWord = null;
 let highlightInterval = null;
+let currentWordIndex = 0;
+let words = [];
 let wordBoundaries = [];
 let pausedWordIndex = null; // Track word position when paused
 let pauseStartTime = 0; // Track when pause started
@@ -51,9 +41,6 @@ let recordingSupported = false;
 
 // Translation popup management
 let currentTranslationPopup = null;
-
-// API configuration
-const API_URL = 'https://anylingo-production.up.railway.app';
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
@@ -100,20 +87,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Set up event listeners
     setupEventListeners();
-    
-    // Initialize speech synthesis
-    if (speechSynthesisSupported) {
-        initializeSpeechSynthesis();
-    }
-    
-    // Check user authentication
-    checkUserAuth().then(async () => {
-        // Initialize lesson form
-        initializeLessonForm();
-        
-        // Load existing lessons
-        loadExistingLessons();
-    });
 });
 
 // Initialize voices for speech synthesis
@@ -154,43 +127,63 @@ function initVoices() {
 // Set up event listeners
 function setupEventListeners() {
     // Navigation buttons
-    const createLessonBtn = document.getElementById('createLessonBtn');
-    if (createLessonBtn) {
-        createLessonBtn.addEventListener('click', () => showSection('createLesson'));
-    }
+    document.getElementById('createLessonBtn').addEventListener('click', () => showSection('createLesson'));
+    document.getElementById('contentBtn').addEventListener('click', () => showSection('content'));
+    document.getElementById('readAloudBtn').addEventListener('click', () => showSection('readAloud'));
+    document.getElementById('translateBtn').addEventListener('click', () => showSection('translate'));
+    document.getElementById('drillsBtn').addEventListener('click', () => showSection('drills'));
+    document.getElementById('recordBtn').addEventListener('click', () => showSection('record'));
     
-    const contentBtn = document.getElementById('contentBtn');
-    if (contentBtn) {
-        contentBtn.addEventListener('click', () => showSection('content'));
-    }
+    // Create lesson buttons
+    document.getElementById('saveLessonBtn').addEventListener('click', saveLesson);
+    document.getElementById('createNewLessonBtn').addEventListener('click', createNewLesson);
+    document.getElementById('createNewLessonFromContentBtn').addEventListener('click', createNewLesson);
     
-    const readAloudBtn = document.getElementById('readAloudBtn');
-    if (readAloudBtn) {
-        readAloudBtn.addEventListener('click', () => showSection('readAloud'));
-    }
+    // ReadAloud controls
+    document.getElementById('startReadingBtn').addEventListener('click', startReading);
+    document.getElementById('pauseReadingBtn').addEventListener('click', pauseReading);
+    document.getElementById('continueReadingBtn').addEventListener('click', continueReading);
+    document.getElementById('stopReadingBtn').addEventListener('click', stopReading);
+    document.getElementById('loopReadingBtn').addEventListener('click', toggleLoop);
     
-    const translateBtn = document.getElementById('translateBtn');
-    if (translateBtn) {
-        translateBtn.addEventListener('click', () => showSection('translate'));
-    }
+    // Rate control
+    document.getElementById('rateRange').addEventListener('input', updateRate);
     
-    const drillsBtn = document.getElementById('drillsBtn');
-    if (drillsBtn) {
-        drillsBtn.addEventListener('click', () => showSection('drills'));
-    }
+    // Translation
+    document.getElementById('translateBtn').addEventListener('click', translateContent);
     
-    const recordBtn = document.getElementById('recordBtn');
-    if (recordBtn) {
-        recordBtn.addEventListener('click', () => showSection('record'));
-    }
+    // Drill buttons
+    document.getElementById('drill1Btn').addEventListener('click', () => showDrillInstructions('drill1'));
+    document.getElementById('drill2Btn').addEventListener('click', () => showDrillInstructions('drill2'));
+    document.getElementById('drill3Btn').addEventListener('click', () => showDrillInstructions('drill3'));
+    document.getElementById('drill4Btn').addEventListener('click', () => showDrillInstructions('drill4'));
+    document.getElementById('drill5Btn').addEventListener('click', () => showDrillInstructions('drill5'));
     
-    const homeBtn = document.getElementById('homeBtn');
-    if (homeBtn) {
-        homeBtn.addEventListener('click', () => showSection('home'));
-    }
+    // Drill 1 controls
+    document.getElementById('startDrill1Btn').addEventListener('click', startDrill1);
     
-    // Initialize lesson form
-    initializeLessonForm();
+    // Drill 2 controls
+    document.getElementById('highlightTextBtn').addEventListener('click', enableTextHighlighting);
+    document.getElementById('clearHighlightsBtn').addEventListener('click', clearHighlights);
+    
+    // Drill 3 controls
+    document.getElementById('startDrill3Btn').addEventListener('click', startDrill3);
+    
+    // Drill 4 controls
+    document.getElementById('startRecordingBtn').addEventListener('click', startDrillRecording);
+    document.getElementById('stopRecordingBtn').addEventListener('click', stopDrillRecording);
+    document.getElementById('playRecordingBtn').addEventListener('click', playDrillRecording);
+    document.getElementById('saveDrillRecordingBtn').addEventListener('click', saveDrillRecording);
+    document.getElementById('reRecordBtn').addEventListener('click', resetDrillRecording);
+    
+    // Main recording controls
+    document.getElementById('startMainRecordingBtn').addEventListener('click', startMainRecording);
+    document.getElementById('stopMainRecordingBtn').addEventListener('click', stopMainRecording);
+    document.getElementById('playMainRecordingBtn').addEventListener('click', playMainRecording);
+    document.getElementById('saveRecordingBtn').addEventListener('click', saveRecording);
+    
+    // Setup text selection for translation
+    setupTextSelection();
 }
 
 // Show a specific section
@@ -238,35 +231,11 @@ function updateSection(sectionName) {
 
 // Update all sections
 function updateAllSections() {
-    try {
-        updateContentSection();
-    } catch (error) {
-        console.log('Error updating content section:', error);
-    }
-    
-    try {
-        updateReadAloudSection();
-    } catch (error) {
-        console.log('Error updating read aloud section:', error);
-    }
-    
-    try {
-        updateTranslateSection();
-    } catch (error) {
-        console.log('Error updating translate section:', error);
-    }
-    
-    try {
-        updateDrillsSection();
-    } catch (error) {
-        console.log('Error updating drills section:', error);
-    }
-    
-    try {
-        updateRecordSection();
-    } catch (error) {
-        console.log('Error updating record section:', error);
-    }
+    updateContentSection();
+    updateReadAloudSection();
+    updateTranslateSection();
+    updateDrillsSection();
+    updateRecordSection();
 }
 
 // Load lessons from localStorage
@@ -396,20 +365,10 @@ function updateContentSection() {
     const selectedLessonTitle = document.getElementById('selectedLessonTitle');
     const selectedLessonContent = document.getElementById('selectedLessonContent');
     
-    if (!lessonsList) {
-        console.log('Lessons list element not found');
-        return;
-    }
-    
     if (Object.keys(lessons).length === 0) {
         lessonsList.innerHTML = '<p class="text-gray-500">No lessons found. Create a new lesson to get started.</p>';
-        
-        if (selectedLessonTitle) {
-            selectedLessonTitle.textContent = 'Select a Lesson';
-        }
-        if (selectedLessonContent) {
-            selectedLessonContent.innerHTML = '<p class="text-gray-500 text-center">Select a lesson from the list to view its content</p>';
-        }
+        selectedLessonTitle.textContent = 'Select a Lesson';
+        selectedLessonContent.innerHTML = '<p class="text-gray-500 text-center">Select a lesson from the list to view its content</p>';
         return;
     }
     
@@ -427,14 +386,14 @@ function updateContentSection() {
                 <div class="flex space-x-2 ml-3">
                     <button 
                         onclick="editLesson('${lesson.id}')" 
-                        class="px-2 py-1 text-xs bg-blue-600 text-white rounded transition-colors"
+                        class="px-2 py-1 text-xs btn-blue text-white rounded transition-colors"
                         title="Edit lesson"
                     >
                         Edit
                     </button>
                     <button 
                         onclick="deleteLesson('${lesson.id}')" 
-                        class="px-2 py-1 text-xs bg-red-600 text-white rounded transition-colors"
+                        class="px-2 py-1 text-xs btn-red text-white rounded transition-colors"
                         title="Delete lesson"
                     >
                         Delete
@@ -444,6 +403,12 @@ function updateContentSection() {
         `;
         lessonsList.appendChild(lessonItem);
     });
+    
+    // Show current lesson if available
+    if (currentLesson) {
+        selectedLessonTitle.textContent = currentLesson.title;
+        selectedLessonContent.innerHTML = `<pre class="whitespace-pre-wrap">${currentLesson.content}</pre>`;
+    }
 }
 
 // Select a lesson
@@ -456,42 +421,24 @@ function selectLesson(lessonId) {
 // Edit a lesson
 function editLesson(lessonId) {
     const lesson = lessons[lessonId];
-    if (!lesson) {
-        console.error('Lesson not found:', lessonId);
-        return;
+    if (lesson) {
+        // Store the lesson ID being edited
+        window.editingLessonId = lessonId;
+        
+        // Populate the form
+        document.getElementById('lessonTitle').value = lesson.title;
+        document.getElementById('lessonContent').value = lesson.content;
+        
+        // Update the form button text
+        const saveButton = document.getElementById('saveLessonBtn');
+        saveButton.textContent = 'Update Lesson';
+        
+        // Clear any existing messages
+        document.getElementById('createLessonMessage').classList.add('hidden');
+        
+        // Show create lesson form
+        showSection('createLesson');
     }
-    
-    console.log('Editing lesson:', lesson);
-    
-    // Store the lesson ID being edited
-    window.editingLessonId = lessonId;
-    
-    // Populate the form - check if elements exist first
-    const titleElement = document.getElementById('lessonTitle');
-    const contentElement = document.getElementById('lessonContent');
-    const messageElement = document.getElementById('createLessonMessage');
-    
-    if (titleElement) {
-        titleElement.value = lesson.title;
-    } else {
-        console.error('Lesson title element not found');
-    }
-    
-    if (contentElement) {
-        contentElement.value = lesson.content;
-    } else {
-        console.error('Lesson content element not found');
-    }
-    
-    // Clear any existing messages
-    if (messageElement) {
-        messageElement.classList.add('hidden');
-    }
-    
-    // Show create lesson form
-    showSection('createLesson');
-    
-    console.log('Lesson form populated for editing');
 }
 
 // Delete a lesson
@@ -1063,22 +1010,6 @@ function updateTranslateSection() {
     const originalTextElement = document.getElementById('originalText');
     const translateBtn = document.getElementById('translateBtn');
     
-    // Check if elements exist before using them
-    if (!titleElement) {
-        console.log('translateLessonTitle element not found');
-        return;
-    }
-    
-    if (!originalTextElement) {
-        console.log('originalText element not found');
-        return;
-    }
-    
-    if (!translateBtn) {
-        console.log('translateBtn element not found');
-        return;
-    }
-    
     if (!currentLesson) {
         titleElement.textContent = 'No lesson loaded';
         originalTextElement.innerHTML = '<p class="text-gray-500 text-center">No lesson content available</p>';
@@ -1091,11 +1022,7 @@ function updateTranslateSection() {
     translateBtn.disabled = false;
     
     // Setup text selection for translation
-    try {
-        setupTextSelection();
-    } catch (error) {
-        console.log('Error setting up text selection:', error);
-    }
+    setupTextSelection();
 }
 
 // Translate content
@@ -1569,17 +1496,6 @@ function updateDrillsSection() {
     const titleElement = document.getElementById('drillsLessonTitle');
     const contentElement = document.getElementById('drillsContent');
     
-    // Check if elements exist before using them
-    if (!titleElement) {
-        console.log('drillsLessonTitle element not found');
-        return;
-    }
-    
-    if (!contentElement) {
-        console.log('drillsContent element not found');
-        return;
-    }
-    
     if (!currentLesson) {
         titleElement.textContent = 'No lesson loaded';
         contentElement.innerHTML = '<p class="text-gray-500 text-center">No lesson content available</p>';
@@ -1593,12 +1509,6 @@ function updateDrillsSection() {
 // Update record section
 function updateRecordSection() {
     const titleElement = document.getElementById('recordLessonTitle');
-    
-    // Check if element exists before using it
-    if (!titleElement) {
-        console.log('recordLessonTitle element not found');
-        return;
-    }
     
     if (!currentLesson) {
         titleElement.textContent = 'No lesson loaded';
@@ -2842,491 +2752,4 @@ function saveRecording() {
     
     // Show message
     showMessage('contentMessage', 'Recording saved successfully!', 'success');
-}
-
-// Lesson management functions
-async function saveLessonToDatabase(lessonData) {
-    try {
-        if (!currentUser || !currentUser.id) {
-            console.error('No user logged in, cannot save lesson');
-            return null;
-        }
-
-        console.log('Saving lesson for user:', currentUser.id);
-
-        const response = await fetch(`${API_URL}/api/lessons`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('anylingo_token')}`
-            },
-            body: JSON.stringify({
-                ...lessonData,
-                userId: currentUser.id
-            })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error('Backend error:', errorData);
-            throw new Error(`Failed to save lesson: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        console.log('Lesson saved to database:', result.lesson);
-        return result.lesson;
-    } catch (error) {
-        console.error('Error saving lesson to database:', error);
-        // Fallback to local storage if database fails
-        return saveLessonToLocalStorage(lessonData);
-    }
-}
-
-function saveLessonToLocalStorage(lessonData) {
-    try {
-        const lessons = JSON.parse(localStorage.getItem('anylingo_lessons') || '[]');
-        const lesson = {
-            ...lessonData,
-            id: 'local_' + Date.now(),
-            createdAt: new Date().toISOString()
-        };
-        lessons.push(lesson);
-        localStorage.setItem('anylingo_lessons', JSON.stringify(lessons));
-        console.log('Lesson saved to local storage:', lesson);
-        return lesson;
-    } catch (error) {
-        console.error('Error saving to local storage:', error);
-        return null;
-    }
-}
-
-async function loadLessonsFromDatabase() {
-    try {
-        if (!currentUser || !currentUser.id) {
-            console.log('No user logged in, loading from local storage');
-            return loadLessonsFromLocalStorage();
-        }
-
-        console.log('Loading lessons for user:', currentUser.id);
-
-        const response = await fetch(`${API_URL}/api/lessons/${currentUser.id}`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('anylingo_token')}`
-            }
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error('Backend error loading lessons:', errorData);
-            throw new Error(`Failed to load lessons: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        console.log('Lessons loaded from database:', result.lessons);
-        return result.lessons;
-    } catch (error) {
-        console.error('Error loading lessons from database:', error);
-        // Fallback to local storage
-        return loadLessonsFromLocalStorage();
-    }
-}
-
-function loadLessonsFromLocalStorage() {
-    try {
-        const lessons = JSON.parse(localStorage.getItem('anylingo_lessons') || '[]');
-        console.log('Lessons loaded from local storage:', lessons);
-        return lessons;
-    } catch (error) {
-        console.error('Error loading from local storage:', error);
-        return [];
-    }
-}
-
-async function updateLessonInDatabase(lessonId, updates) {
-    try {
-        if (!currentUser || !currentUser.id) {
-            console.error('No user logged in, cannot update lesson');
-            return false;
-        }
-
-        const response = await fetch(`${API_URL}/api/lessons/${lessonId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('anylingo_token')}`
-            },
-            body: JSON.stringify(updates)
-        });
-
-        if (!response.ok) {
-            throw new Error(`Failed to update lesson: ${response.statusText}`);
-        }
-
-        console.log('Lesson updated in database:', lessonId);
-        return true;
-    } catch (error) {
-        console.error('Error updating lesson in database:', error);
-        return false;
-    }
-}
-
-async function deleteLessonFromDatabase(lessonId) {
-    try {
-        if (!currentUser || !currentUser.id) {
-            console.error('No user logged in, cannot delete lesson');
-            return false;
-        }
-
-        const response = await fetch(`${API_URL}/api/lessons/${lessonId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('anylingo_token')}`
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`Failed to delete lesson: ${response.statusText}`);
-        }
-
-        console.log('Lesson deleted from database:', lessonId);
-        return true;
-    } catch (error) {
-        console.error('Error deleting lesson from database:', error);
-        return false;
-    }
-}
-
-// Initialize lesson form
-function initializeLessonForm() {
-    const lessonForm = document.getElementById('lessonForm');
-    console.log('Initializing lesson form:', lessonForm);
-    
-    if (lessonForm) {
-        lessonForm.addEventListener('submit', handleLessonSubmission);
-        console.log('Lesson form event listener added successfully');
-    } else {
-        console.error('Lesson form not found in DOM');
-    }
-}
-
-// Handle lesson form submission
-async function handleLessonSubmission(e) {
-    console.log('Lesson form submission handler called');
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Check if user is authenticated
-    if (!canAccessLessons()) {
-        return;
-    }
-    
-    const formData = new FormData(e.target);
-    const title = formData.get('title').trim();
-    const content = formData.get('content').trim();
-    const targetLanguage = formData.get('targetLanguage');
-    
-    console.log('Form data:', { title, content, targetLanguage });
-    
-    if (!title || !content) {
-        showMessage('createLessonMessage', 'Please enter both title and content.', 'error');
-        return;
-    }
-    
-    if (!targetLanguage) {
-        showMessage('createLessonMessage', 'Please select a target language.', 'error');
-        return;
-    }
-    
-    // Create lesson data
-    const lessonData = {
-        title: title,
-        content: content,
-        targetLanguage: targetLanguage,
-        sourceLanguage: currentSourceLanguage || 'auto',
-        status: 'draft'
-    };
-    
-    console.log('Saving lesson data:', lessonData);
-    
-    // Save lesson
-    const savedLesson = await saveLessonToDatabase(lessonData);
-    
-    if (savedLesson) {
-        console.log('Lesson saved successfully:', savedLesson);
-        
-        // Update local lessons object
-        lessons[savedLesson.id] = savedLesson;
-        
-        // Update UI
-        currentLesson = savedLesson;
-        
-        // Show success message
-        showMessage('createLessonMessage', 'Lesson created and saved successfully!', 'success');
-        
-        // Refresh lessons list
-        displayLessons();
-        
-        // Clear form
-        e.target.reset();
-        
-        // Stay on create lesson section instead of redirecting
-        console.log('Lesson creation complete, staying on create lesson section');
-    } else {
-        console.error('Failed to save lesson');
-        showMessage('createLessonMessage', 'Failed to save lesson. Please try again.', 'error');
-    }
-}
-
-// Load existing lessons
-async function loadExistingLessons() {
-    const loadedLessons = await loadLessonsFromDatabase();
-    
-    // Convert array to object for compatibility
-    lessons = {};
-    loadedLessons.forEach(lesson => {
-        lessons[lesson.id] = lesson;
-    });
-    
-    // Display lessons
-    displayLessons();
-}
-
-// Display lessons in the UI
-function displayLessons() {
-    const lessonsList = document.getElementById('lessonsList');
-    if (!lessonsList) return;
-    
-    if (Object.keys(lessons).length === 0) {
-        lessonsList.innerHTML = `
-            <div class="p-4 border rounded-md bg-gray-50">
-                <p class="text-gray-500 text-center">No lessons found. Create a new lesson to get started.</p>
-            </div>
-        `;
-        return;
-    }
-    
-    const lessonsHtml = Object.values(lessons).map(lesson => `
-        <div class="p-4 border rounded-md bg-white shadow-sm hover:shadow-md transition-shadow">
-            <div class="flex justify-between items-start">
-                <div class="flex-1">
-                    <h4 class="text-lg font-semibold text-gray-900 mb-2">${lesson.title}</h4>
-                    <p class="text-sm text-gray-600 mb-2">${lesson.content.substring(0, 100)}${lesson.content.length > 100 ? '...' : ''}</p>
-                    <div class="flex items-center space-x-4 text-xs text-gray-500">
-                        <span>Target: ${lesson.targetLanguage}</span>
-                        <span>Created: ${new Date(lesson.createdAt).toLocaleDateString()}</span>
-                        <span>Status: ${lesson.status}</span>
-                    </div>
-                </div>
-                <div class="flex space-x-2">
-                    <button onclick="loadLesson('${lesson.id}')" class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
-                        Load
-                    </button>
-                    <button onclick="deleteLesson('${lesson.id}')" class="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700">
-                        Delete
-                    </button>
-                </div>
-            </div>
-        </div>
-    `).join('');
-    
-    lessonsList.innerHTML = lessonsHtml;
-}
-
-// Load a specific lesson
-function loadLesson(lessonId) {
-    const lesson = typeof lessonId === 'string' ? lessons[lessonId] : lessonId;
-    if (!lesson) {
-        console.error('Lesson not found:', lessonId);
-        return;
-    }
-    
-    currentLesson = lesson;
-    
-    // Update UI elements
-    const originalTextElement = document.getElementById('originalText');
-    if (originalTextElement) {
-        originalTextElement.innerHTML = `<pre class="whitespace-pre-wrap">${lesson.content}</pre>`;
-    }
-    
-    // Show translation section
-    showSection('translate');
-    
-    // Update lesson info
-    updateLessonInfo(lesson);
-}
-
-// Update lesson information display
-function updateLessonInfo(lesson) {
-    // Update any lesson info displays
-    console.log('Lesson loaded:', lesson);
-}
-
-// Delete a lesson
-async function deleteLesson(lessonId) {
-    if (!confirm('Are you sure you want to delete this lesson?')) {
-        return;
-    }
-    
-    // Delete from database
-    const deleted = await deleteLessonFromDatabase(lessonId);
-    
-    // Remove from local lessons object
-    delete lessons[lessonId];
-    
-    // Update UI
-    displayLessons();
-    
-    if (deleted) {
-        showMessage('contentMessage', 'Lesson deleted successfully!', 'success');
-    } else {
-        showMessage('contentMessage', 'Lesson deleted from local storage.', 'info');
-    }
-}
-
-// Initialize speech synthesis
-function initializeSpeechSynthesis() {
-    if ('speechSynthesis' in window) {
-        speechSynthesisSupported = true;
-        synth = window.speechSynthesis;
-        
-        // Load available voices
-        const loadVoices = () => {
-            const voices = synth.getVoices();
-            const voiceSelect = document.getElementById('voiceSelect');
-            if (voiceSelect) {
-                voiceSelect.innerHTML = '';
-                voices.forEach(voice => {
-                    const option = document.createElement('option');
-                    option.value = voice.name;
-                    option.textContent = `${voice.name} (${voice.lang})`;
-                    voiceSelect.appendChild(option);
-                });
-            }
-        };
-        
-        // Chrome loads voices asynchronously
-        if (synth.onvoiceschanged !== undefined) {
-            synth.onvoiceschanged = loadVoices;
-        }
-        
-        loadVoices();
-        console.log('Speech synthesis initialized');
-    } else {
-        speechSynthesisSupported = false;
-        console.log('Speech synthesis not supported');
-    }
-}
-
-// Check user authentication status
-async function checkUserAuth() {
-    const token = localStorage.getItem('anylingo_token');
-    const userData = localStorage.getItem('anylingo_user_data');
-    
-    if (!token) {
-        console.log('No token found, user not logged in');
-        currentUser = null;
-        return false;
-    }
-    
-    try {
-        // Verify token with backend
-        const response = await fetch(`${API_URL}/api/auth/me`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            currentUser = data.user;
-            
-            // Store the complete user data including the proper ID
-            localStorage.setItem('anylingo_user_data', JSON.stringify(currentUser));
-            
-            console.log('User authenticated:', currentUser);
-            
-            // Update UI to show logged-in state
-            updateUserInterface();
-            return true;
-        } else {
-            console.log('Token invalid, clearing user data');
-            localStorage.removeItem('anylingo_token');
-            localStorage.removeItem('anylingo_user_data');
-            currentUser = null;
-            return false;
-        }
-    } catch (error) {
-        console.error('Auth check failed:', error);
-        // Fallback to stored user data if network fails
-        if (userData) {
-            try {
-                currentUser = JSON.parse(userData);
-                console.log('Using stored user data:', currentUser);
-                return true;
-            } catch (e) {
-                console.error('Failed to parse stored user data');
-                currentUser = null;
-                return false;
-            }
-        }
-        currentUser = null;
-        return false;
-    }
-}
-
-// Update user interface based on auth status
-function updateUserInterface() {
-    const userNameElement = document.getElementById('userName');
-    const userMenu = document.getElementById('userMenu');
-    const userMenuBtn = document.getElementById('userMenuBtn');
-    const loginBtn = document.getElementById('loginBtn');
-    
-    if (currentUser) {
-        // User is logged in
-        if (userNameElement) {
-            userNameElement.textContent = currentUser.firstName || 'User';
-        }
-        
-        // Show user menu, hide login button
-        if (userMenuBtn) {
-            userMenuBtn.classList.remove('hidden');
-        }
-        if (loginBtn) {
-            loginBtn.classList.add('hidden');
-        }
-        
-        console.log('User interface updated for logged-in user');
-    } else {
-        // User is not logged in
-        if (userNameElement) {
-            userNameElement.textContent = 'Guest';
-        }
-        
-        // Hide user menu, show login button
-        if (userMenuBtn) {
-            userMenuBtn.classList.add('hidden');
-        }
-        if (loginBtn) {
-            loginBtn.classList.remove('hidden');
-        }
-        
-        console.log('User interface updated for guest user');
-    }
-}
-
-// Handle login redirect
-function redirectToLogin() {
-    console.log('Redirecting to login page');
-    window.location.href = '/signup.html';
-}
-
-// Check if user can access lesson features
-function canAccessLessons() {
-    if (!currentUser || !currentUser.id) {
-        console.log('User not authenticated, redirecting to login');
-        redirectToLogin();
-        return false;
-    }
-    return true;
 }

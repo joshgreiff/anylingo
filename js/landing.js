@@ -18,17 +18,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Handle login button click
-    const loginButton = document.querySelector('a[href="/landing/signup.html#login"]');
-    if (loginButton) {
-        loginButton.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('Login button clicked!');
-            // Navigate to signup page and scroll to login section
-            window.location.href = '/landing/signup.html#login';
-        });
-    }
-
     // Intersection Observer for animations
     const observerOptions = {
         threshold: 0.1,

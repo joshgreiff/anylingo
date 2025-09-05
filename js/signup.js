@@ -1,48 +1,16 @@
 // AnyLingo Signup Page JavaScript
 
-const API_URL = 'https://anylingo-production.up.railway.app';
+const API_URL = 'https://anylingobackend.vercel.app';
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Check if we should scroll to login section
-    if (window.location.hash === '#login') {
-        console.log('Scrolling to login section...');
-        setTimeout(() => {
-            const loginSection = document.getElementById('login');
-            if (loginSection) {
-                console.log('Login section found, scrolling to it...');
-                loginSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            } else {
-                console.error('Login section not found!');
-            }
-        }, 100);
-    }
-
-    // Debug: Check if login section exists and is visible
-    const loginSection = document.getElementById('login');
-    if (loginSection) {
-        console.log('Login section found on page load');
-        console.log('Login section display style:', window.getComputedStyle(loginSection).display);
-        console.log('Login section visibility:', window.getComputedStyle(loginSection).visibility);
-        console.log('Login section opacity:', window.getComputedStyle(loginSection).opacity);
-    } else {
-        console.error('Login section not found on page load!');
-    }
-
     const signupForm = document.getElementById('signup-form');
-    const loginForm = document.getElementById('login-form');
     const promoCodeInput = document.getElementById('promoCode');
     
     if (signupForm) {
         signupForm.addEventListener('submit', handleSignup);
     }
-    
-    if (loginForm) {
-        console.log('Login form found, adding event listener');
-        loginForm.addEventListener('submit', handleLogin);
-    } else {
-        console.error('Login form not found!');
-    }
-    
+
+    // Promo code validation
     if (promoCodeInput) {
         promoCodeInput.addEventListener('blur', validatePromoCode);
     }
@@ -106,93 +74,72 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
 
             if (response.ok && data.valid) {
-                showPromoCodeMessage('Valid promo code!', 'success');
+                showPromoCodeMessage('success', `Valid promo code! ${data.description}`);
             } else {
-                showPromoCodeMessage(data.error || 'Invalid promo code', 'error');
+                showPromoCodeMessage('error', data.error || 'Invalid promo code');
             }
         } catch (error) {
             console.error('Promo code validation error:', error);
-            showPromoCodeMessage('Failed to validate promo code', 'error');
+            showPromoCodeMessage('error', 'Failed to validate promo code');
         }
     }
 
-    function showPromoCodeMessage(message, type) {
-        const messageElement = document.getElementById('promoCodeMessage');
-        if (messageElement) {
-            messageElement.textContent = message;
-            messageElement.className = `mt-1 text-sm ${type === 'success' ? 'text-green-600' : 'text-red-600'}`;
-            messageElement.classList.remove('hidden');
-        }
+    // Show promo code message
+    function showPromoCodeMessage(type, message) {
+        clearPromoCodeMessage();
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `text-sm mt-1 ${type === 'success' ? 'text-green-600' : 'text-red-600'}`;
+        messageDiv.textContent = message;
+        
+        promoCodeInput.parentNode.appendChild(messageDiv);
     }
-    
+
+    // Clear promo code message
     function clearPromoCodeMessage() {
-        const messageElement = document.getElementById('promoCodeMessage');
-        if (messageElement) {
-            messageElement.classList.add('hidden');
-        }
-    }
-    
-    function showSuccess(message) {
-        const messageElement = document.getElementById('signupMessage');
-        if (messageElement) {
-            messageElement.textContent = message;
-            messageElement.className = 'mt-4 p-3 rounded-md bg-green-100 text-green-700';
-            messageElement.classList.remove('hidden');
-        }
-    }
-    
-    function showError(message) {
-        const messageElement = document.getElementById('signupMessage');
-        if (messageElement) {
-            messageElement.textContent = message;
-            messageElement.className = 'mt-4 p-3 rounded-md bg-red-100 text-red-700';
-            messageElement.classList.remove('hidden');
-        }
-    }
-    
-    function showLoginSuccess(message) {
-        const messageElement = document.getElementById('loginMessage');
-        if (messageElement) {
-            messageElement.textContent = message;
-            messageElement.className = 'mt-4 p-3 rounded-md bg-green-100 text-green-700';
-            messageElement.classList.remove('hidden');
-        }
-    }
-    
-    function showLoginError(message) {
-        const messageElement = document.getElementById('loginMessage');
-        if (messageElement) {
-            messageElement.textContent = message;
-            messageElement.classList.remove('hidden');
-            messageElement.className = 'mt-4 p-3 rounded-md bg-red-100 text-red-700';
+        const existingMessage = promoCodeInput.parentNode.querySelector('.text-sm.mt-1');
+        if (existingMessage) {
+            existingMessage.remove();
         }
     }
 
     // Handle signup form submission
     async function handleSignup(e) {
         e.preventDefault();
-        
-        const formData = new FormData(e.target);
-        const submitBtn = e.target.querySelector('button[type="submit"]');
-        const originalText = submitBtn.textContent;
-        
+
+        const formData = new FormData(signupForm);
+        const errors = validateForm(formData);
+
+        if (errors.length > 0) {
+            showErrors(errors);
+            return;
+        }
+
         // Show loading state
-        submitBtn.textContent = 'Creating Account...';
-        submitBtn.disabled = true;
-        
+        const submitButton = signupForm.querySelector('button[type="submit"]');
+        const originalText = submitButton.textContent;
+        submitButton.textContent = 'Creating Account...';
+        submitButton.disabled = true;
+
         try {
+            // Create account
             const userData = await createAccount(formData);
-            const promoCode = formData.get('promoCode').trim();
             
+            // If promo code is provided, apply it
+            const promoCode = formData.get('promoCode').trim();
             if (promoCode) {
                 await applyPromoCode(userData.token, promoCode);
                 showSuccess('Account created successfully! Promo code applied. Redirecting to app...');
+                
+                // Store token and redirect to app
                 localStorage.setItem('anylingo_token', userData.token);
                 setTimeout(() => {
-                    window.location.href = '/landing/app/';
+                    window.location.href = '/app/';
                 }, 2000);
             } else {
                 showSuccess('Account created successfully! Redirecting to payment...');
+                
+                // Store user data and redirect to payment
                 localStorage.setItem('anylingo_token', userData.token);
                 localStorage.setItem('anylingo_user_data', JSON.stringify({
                     fullName: formData.get('fullName'),
@@ -200,48 +147,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     targetLanguage: formData.get('targetLanguage'),
                     marketing: formData.get('marketing') === 'on'
                 }));
+                
                 setTimeout(() => {
                     window.location.href = 'payment.html';
                 }, 2000);
             }
+
         } catch (error) {
             showError(error.message || 'Failed to create account. Please try again.');
             console.error('Signup error:', error);
         } finally {
             // Reset button
-            submitBtn.textContent = originalText;
-            submitBtn.disabled = false;
-        }
-    }
-    
-    async function handleLogin(e) {
-        console.log('Login form submitted!');
-        e.preventDefault();
-        
-        const formData = new FormData(e.target);
-        console.log('Form data:', Object.fromEntries(formData));
-        
-        const submitBtn = e.target.querySelector('button[type="submit"]');
-        const originalText = submitBtn.textContent;
-        
-        // Show loading state
-        submitBtn.textContent = 'Logging In...';
-        submitBtn.disabled = true;
-        
-        try {
-            const userData = await loginUser(formData);
-            showLoginSuccess('Login successful! Redirecting to app...');
-            localStorage.setItem('anylingo_token', userData.token);
-            setTimeout(() => {
-                window.location.href = '/landing/app/';
-            }, 2000);
-        } catch (error) {
-            showLoginError(error.message || 'Failed to login. Please check your credentials.');
-            console.error('Login error:', error);
-        } finally {
-            // Reset button
-            submitBtn.textContent = originalText;
-            submitBtn.disabled = false;
+            submitButton.textContent = originalText;
+            submitButton.disabled = false;
         }
     }
 
@@ -249,31 +167,26 @@ document.addEventListener('DOMContentLoaded', function() {
     async function createAccount(formData) {
         const response = await fetch(`${API_URL}/api/auth/register`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify({
                 firstName: formData.get('fullName').split(' ')[0],
                 lastName: formData.get('fullName').split(' ').slice(1).join(' ') || '',
                 email: formData.get('email'),
                 password: formData.get('password'),
-                preferences: { targetLanguages: [formData.get('targetLanguage')] }
+                preferences: {
+                    targetLanguages: [formData.get('targetLanguage')]
+                }
             })
         });
+
         const data = await response.json();
-        if (!response.ok) { throw new Error(data.error || 'Failed to create account'); }
-        return data;
-    }
-    
-    async function loginUser(formData) {
-        const response = await fetch(`${API_URL}/api/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                email: formData.get('loginEmail'),
-                password: formData.get('loginPassword')
-            })
-        });
-        const data = await response.json();
-        if (!response.ok) { throw new Error(data.error || 'Failed to login'); }
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to create account');
+        }
+
         return data;
     }
 
@@ -323,6 +236,32 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Scroll to errors
         errorContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // Show success message
+    function showSuccess(message) {
+        const successContainer = document.createElement('div');
+        successContainer.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg z-50';
+        successContainer.textContent = message;
+        
+        document.body.appendChild(successContainer);
+        
+        setTimeout(() => {
+            successContainer.remove();
+        }, 5000);
+    }
+
+    // Show error message
+    function showError(message) {
+        const errorContainer = document.createElement('div');
+        errorContainer.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-4 rounded-lg shadow-lg z-50';
+        errorContainer.textContent = message;
+        
+        document.body.appendChild(errorContainer);
+        
+        setTimeout(() => {
+            errorContainer.remove();
+        }, 5000);
     }
 
     // Real-time password strength indicator
