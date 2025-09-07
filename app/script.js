@@ -44,6 +44,14 @@ let currentTranslationPopup = null;
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
+    // Check if user is authenticated
+    const token = localStorage.getItem('anylingo_token');
+    if (!token) {
+        // Redirect to login if not authenticated
+        window.location.href = '/signup.html#login';
+        return;
+    }
+    
     // Check for speech synthesis support
     if (typeof window.speechSynthesis !== 'undefined') {
         synth = window.speechSynthesis;
@@ -133,6 +141,7 @@ function setupEventListeners() {
     document.getElementById('translateBtn').addEventListener('click', () => showSection('translate'));
     document.getElementById('drillsBtn').addEventListener('click', () => showSection('drills'));
     document.getElementById('recordBtn').addEventListener('click', () => showSection('record'));
+    document.getElementById('logoutBtn').addEventListener('click', logout);
     
     // Create lesson buttons
     document.getElementById('saveLessonBtn').addEventListener('click', saveLesson);
@@ -181,6 +190,10 @@ function setupEventListeners() {
     document.getElementById('stopMainRecordingBtn').addEventListener('click', stopMainRecording);
     document.getElementById('playMainRecordingBtn').addEventListener('click', playMainRecording);
     document.getElementById('saveRecordingBtn').addEventListener('click', saveRecording);
+    document.getElementById('shareRecordingBtn').addEventListener('click', shareMainRecording);
+    
+    // Drill recording share
+    document.getElementById('shareDrillRecordingBtn').addEventListener('click', shareDrillRecording);
     
     // Setup text selection for translation
     setupTextSelection();
@@ -238,9 +251,26 @@ function updateAllSections() {
     updateRecordSection();
 }
 
-// Load lessons from localStorage
+// Get user-specific localStorage key
+function getUserSpecificKey(key) {
+    const token = localStorage.getItem('anylingo_token');
+    if (!token) return key; // Fallback to non-user-specific key if no token
+    
+    try {
+        // Decode JWT token to get user ID (simple base64 decode of payload)
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const userId = payload.userId || 'unknown';
+        return `${key}_${userId}`;
+    } catch (error) {
+        console.error('Error decoding token:', error);
+        return key; // Fallback to non-user-specific key
+    }
+}
+
+// Load lessons from localStorage (user-specific)
 function loadLessons() {
-    const savedLessons = localStorage.getItem('lessons');
+    const userKey = getUserSpecificKey('lessons');
+    const savedLessons = localStorage.getItem(userKey);
     if (savedLessons) {
         try {
             lessons = JSON.parse(savedLessons);
@@ -248,12 +278,112 @@ function loadLessons() {
             console.error('Error loading lessons:', error);
             lessons = {};
         }
+    } else {
+        // Try to load from backend if no local lessons
+        loadLessonsFromBackend();
     }
 }
 
-// Load user preferences from localStorage
+// Load lessons from backend
+async function loadLessonsFromBackend() {
+    const token = localStorage.getItem('anylingo_token');
+    if (!token) return;
+
+    try {
+        const response = await fetch('https://anylingo-production.up.railway.app/api/lessons', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            // Convert backend lesson format to frontend format
+            lessons = {};
+            data.lessons.forEach(lesson => {
+                lessons[lesson.title] = {
+                    content: lesson.content.original,
+                    translated: lesson.content.translated || '',
+                    category: lesson.category,
+                    difficulty: lesson.difficulty,
+                    id: lesson._id
+                };
+            });
+            
+            // Save to localStorage for offline access
+            saveLessons();
+            
+            // Update UI if lessons section is visible
+            if (currentSection === 'lessons') {
+                updateLessonsSection();
+            }
+            
+            console.log(`Loaded ${data.lessons.length} lessons from backend`);
+        } else {
+            console.error('Failed to load lessons from backend:', response.statusText);
+        }
+    } catch (error) {
+        console.error('Error loading lessons from backend:', error);
+    }
+}
+
+// Clear user-specific data (call on logout)
+function clearUserData() {
+    const token = localStorage.getItem('anylingo_token');
+    if (!token) return;
+    
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const userId = payload.userId || 'unknown';
+        
+        // Clear user-specific localStorage items
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.endsWith(`_${userId}`)) {
+                keysToRemove.push(key);
+            }
+        }
+        
+        keysToRemove.forEach(key => {
+            localStorage.removeItem(key);
+        });
+        
+        // Clear token
+        localStorage.removeItem('anylingo_token');
+        
+        // Reset global variables
+        lessons = {};
+        currentLesson = null;
+        userPreferences = {
+            speechRate: 0.7,
+            targetLanguage: 'en',
+            selectedText: null,
+            highlightedWords: []
+        };
+        
+        console.log('User data cleared');
+    } catch (error) {
+        console.error('Error clearing user data:', error);
+        // Fallback: just remove the token
+        localStorage.removeItem('anylingo_token');
+    }
+}
+
+// Logout function
+function logout() {
+    if (confirm('Are you sure you want to logout? This will clear all your local data.')) {
+        clearUserData();
+        // Redirect to login page
+        window.location.href = '/signup.html#login';
+    }
+}
+
+// Load user preferences from localStorage (user-specific)
 function loadUserPreferences() {
-    const savedPreferences = localStorage.getItem('userPreferences');
+    const userKey = getUserSpecificKey('userPreferences');
+    const savedPreferences = localStorage.getItem(userKey);
     if (savedPreferences) {
         try {
             const saved = JSON.parse(savedPreferences);
@@ -264,14 +394,16 @@ function loadUserPreferences() {
     }
 }
 
-// Save user preferences to localStorage
+// Save user preferences to localStorage (user-specific)
 function saveUserPreferences() {
-    localStorage.setItem('userPreferences', JSON.stringify(userPreferences));
+    const userKey = getUserSpecificKey('userPreferences');
+    localStorage.setItem(userKey, JSON.stringify(userPreferences));
 }
 
-// Save lessons to localStorage
+// Save lessons to localStorage (user-specific)
 function saveLessons() {
-    localStorage.setItem('lessons', JSON.stringify(lessons));
+    const userKey = getUserSpecificKey('lessons');
+    localStorage.setItem(userKey, JSON.stringify(lessons));
 }
 
 // Create a new lesson
@@ -2546,10 +2678,11 @@ function startDrillRecording() {
                 // Create audio element
                 audioElement = new Audio(audioUrl);
                 
-                // Enable playback, save, and re-record buttons
+                // Enable playback, save, re-record, and share buttons
                 document.getElementById('playRecordingBtn').disabled = false;
                 document.getElementById('saveDrillRecordingBtn').disabled = false;
                 document.getElementById('reRecordBtn').disabled = false;
+                document.getElementById('shareDrillRecordingBtn').disabled = false;
                 
                 // Show message
                 showMessage('drillInstructions', 'Recording completed. Click "Play Recording" to listen or "Save Recording" to download.', 'success');
@@ -2639,6 +2772,7 @@ function resetDrillRecording() {
     // Update UI
     document.getElementById('playRecordingBtn').disabled = true;
     document.getElementById('reRecordBtn').disabled = true;
+    document.getElementById('shareDrillRecordingBtn').disabled = true;
     document.getElementById('startRecordingBtn').disabled = false;
     
     // Show message
@@ -2672,9 +2806,10 @@ function startMainRecording() {
                 // Create audio element
                 audioElement = new Audio(audioUrl);
                 
-                // Enable playback and save buttons
+                // Enable playback, save, and share buttons
                 document.getElementById('playMainRecordingBtn').disabled = false;
                 document.getElementById('saveRecordingBtn').disabled = false;
+                document.getElementById('shareRecordingBtn').disabled = false;
                 
                 // Show message
                 showMessage('contentMessage', 'Recording completed. Click "Play Recording" to listen or "Save Recording" to download.', 'success');
@@ -2752,4 +2887,140 @@ function saveRecording() {
     
     // Show message
     showMessage('contentMessage', 'Recording saved successfully!', 'success');
+}
+
+// Share main recording
+function shareMainRecording() {
+    if (!audioBlob) return;
+    
+    shareRecording(audioBlob, 'main_recording');
+}
+
+// Share drill recording
+function shareDrillRecording() {
+    if (!audioBlob) return;
+    
+    shareRecording(audioBlob, 'drill_recording');
+}
+
+// Generic share recording function
+async function shareRecording(blob, recordingType) {
+    try {
+        // Create a File object from the blob
+        const file = new File([blob], `${recordingType}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`, {
+            type: 'audio/wav'
+        });
+
+        // Check if Web Share API is supported and can share files
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+                title: 'AnyLingo Recording',
+                text: 'Check out my language learning recording from AnyLingo!',
+                files: [file]
+            });
+            
+            showMessage('contentMessage', 'Recording shared successfully!', 'success');
+        } else {
+            // Fallback: Copy shareable link to clipboard or show sharing options
+            await fallbackShare(blob, recordingType);
+        }
+    } catch (error) {
+        console.error('Error sharing recording:', error);
+        
+        if (error.name === 'AbortError') {
+            // User cancelled the share
+            showMessage('contentMessage', 'Share cancelled', 'info');
+        } else {
+            // Try fallback sharing method
+            await fallbackShare(blob, recordingType);
+        }
+    }
+}
+
+// Fallback sharing method
+async function fallbackShare(blob, recordingType) {
+    try {
+        // Create a temporary URL for the recording
+        const url = URL.createObjectURL(blob);
+        
+        // Create a modal with sharing options
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                <h3 class="text-lg font-bold mb-4">Share Recording</h3>
+                <p class="text-gray-600 mb-4">Choose how you'd like to share your recording:</p>
+                
+                <div class="space-y-3">
+                    <button id="copyLinkBtn" class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                        📋 Copy Link to Clipboard
+                    </button>
+                    <button id="downloadShareBtn" class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                        💾 Download to Share
+                    </button>
+                    <button id="emailShareBtn" class="w-full px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+                        📧 Share via Email
+                    </button>
+                </div>
+                
+                <button id="closeModalBtn" class="w-full mt-4 px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
+                    Cancel
+                </button>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Handle sharing options
+        document.getElementById('copyLinkBtn').addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(url);
+                showMessage('contentMessage', 'Recording link copied to clipboard!', 'success');
+            } catch (error) {
+                console.error('Error copying to clipboard:', error);
+                showMessage('contentMessage', 'Could not copy link to clipboard', 'error');
+            }
+            document.body.removeChild(modal);
+        });
+        
+        document.getElementById('downloadShareBtn').addEventListener('click', () => {
+            // Trigger download
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${recordingType}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.wav`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            showMessage('contentMessage', 'Recording downloaded! You can now share the file.', 'success');
+            document.body.removeChild(modal);
+        });
+        
+        document.getElementById('emailShareBtn').addEventListener('click', () => {
+            const subject = encodeURIComponent('My AnyLingo Language Learning Recording');
+            const body = encodeURIComponent(`Hi! I wanted to share my language learning recording with you. I created this using AnyLingo - check it out!\n\nRecording: ${url}\n\nBest regards!`);
+            const mailtoLink = `mailto:?subject=${subject}&body=${body}`;
+            
+            window.open(mailtoLink, '_blank');
+            showMessage('contentMessage', 'Email client opened with recording details!', 'success');
+            document.body.removeChild(modal);
+        });
+        
+        document.getElementById('closeModalBtn').addEventListener('click', () => {
+            document.body.removeChild(modal);
+            URL.revokeObjectURL(url);
+        });
+        
+        // Close modal when clicking outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                document.body.removeChild(modal);
+                URL.revokeObjectURL(url);
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error in fallback share:', error);
+        showMessage('contentMessage', 'Unable to share recording. Please try saving it instead.', 'error');
+    }
 }

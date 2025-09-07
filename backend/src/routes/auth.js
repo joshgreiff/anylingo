@@ -2,6 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const { createDefaultLessonsForUser } = require('../../create-default-lessons');
 const router = express.Router();
 
 // Register new user
@@ -24,6 +25,16 @@ router.post('/register', async (req, res) => {
         });
 
         await user.save();
+
+        // Create default lessons for new user
+        try {
+            const targetLanguage = req.body.preferences?.targetLanguages?.[0] || 'es';
+            await createDefaultLessonsForUser(user._id, targetLanguage);
+            console.log(`Created default lessons for new user: ${user.email}`);
+        } catch (lessonError) {
+            console.error('Error creating default lessons:', lessonError);
+            // Don't fail registration if lesson creation fails
+        }
 
         // Generate JWT token
         const token = jwt.sign(
