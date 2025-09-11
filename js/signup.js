@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }));
                 
                 setTimeout(() => {
-                    window.location.href = 'payment.html';
+                    window.location.href = '/payment';
                 }, 2000);
             }
 

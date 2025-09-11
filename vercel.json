@@ -2,56 +2,8 @@
   "version": 2,
   "builds": [
     {
-      "src": "*.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "landing/*.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "app/*.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "*.css",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "css/*.css",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "landing/css/*.css",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "app/*.css",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "*.js",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "js/*.js",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "landing/js/*.js",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "app/*.js",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "*.svg",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "*.ico",
-      "use": "@vercel/static"
+      "src": "package.json",
+      "use": "@vercel/next"
     }
   ],
   "routes": [
@@ -60,96 +12,8 @@
       "dest": "/app/$1"
     },
     {
-      "src": "/app/css/(.*)",
-      "dest": "/app/$1",
-      "headers": {
-        "Content-Type": "text/css"
-      }
-    },
-    {
-      "src": "/app/js/(.*)",
-      "dest": "/app/$1",
-      "headers": {
-        "Content-Type": "application/javascript"
-      }
-    },
-    {
-      "src": "/landing/(.*)",
-      "dest": "/landing/$1"
-    },
-    {
-      "src": "/landing/css/(.*)",
-      "dest": "/landing/css/$1",
-      "headers": {
-        "Content-Type": "text/css"
-      }
-    },
-    {
-      "src": "/landing/js/(.*)",
-      "dest": "/landing/js/$1",
-      "headers": {
-        "Content-Type": "application/javascript"
-      }
-    },
-    {
-      "src": "/styles.css",
-      "dest": "/styles.css",
-      "headers": {
-        "Content-Type": "text/css"
-      }
-    },
-    {
-      "src": "/script.js",
-      "dest": "/script.js",
-      "headers": {
-        "Content-Type": "application/javascript"
-      }
-    },
-    {
-      "src": "/config.js",
-      "dest": "/config.js",
-      "headers": {
-        "Content-Type": "application/javascript"
-      }
-    },
-    {
-      "src": "/favicon.svg",
-      "dest": "/favicon.svg",
-      "headers": {
-        "Content-Type": "image/svg+xml"
-      }
-    },
-    {
-      "src": "/favicon.ico",
-      "dest": "/favicon.ico",
-      "headers": {
-        "Content-Type": "image/x-icon"
-      }
-    },
-    {
-      "src": "/signup.html",
-      "dest": "/signup.html",
-      "headers": {
-        "Content-Type": "text/html"
-      }
-    },
-    {
-      "src": "/js/(.*)",
-      "dest": "/js/$1",
-      "headers": {
-        "Content-Type": "application/javascript"
-      }
-    },
-    {
-      "src": "/css/(.*)",
-      "dest": "/css/$1",
-      "headers": {
-        "Content-Type": "text/css"
-      }
-    },
-    {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "/$1"
     }
   ]
-} 
+}

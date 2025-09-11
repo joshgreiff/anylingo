@@ -2,36 +2,27 @@
   "name": "anylingo-app",
   "version": "1.0.0",
   "description": "A comprehensive web-based language learning application",
-  "main": "index.html",
+  "private": true,
   "scripts": {
-    "start": "python3 -m http.server 8000",
-    "serve": "python3 -m http.server 8000",
-    "dev": "python3 -m http.server 8000",
-    "build": "echo 'No build step required for static site'",
-    "deploy": "vercel --prod"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
-  "keywords": [
-    "language-learning",
-    "education",
-    "speech-synthesis",
-    "translation",
-    "recording",
-    "web-app"
-  ],
-  "author": "AnyLingo Team",
-  "license": "MIT",
-  "dependencies": {},
-  "devDependencies": {},
+  "dependencies": {
+    "next": "^14.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "eslint": "^8.0.0",
+    "eslint-config-next": "^14.0.0",
+    "typescript": "^5.0.0"
+  },
   "engines": {
-    "node": ">=12.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/anylingo/anylingo-app.git"
-  },
-  "bugs": {
-    "url": "https://github.com/anylingo/anylingo-app/issues"
-  },
-  "homepage": "https://github.com/anylingo/anylingo-app#readme"
+    "node": ">=18.0.0"
+  }
 }
-
