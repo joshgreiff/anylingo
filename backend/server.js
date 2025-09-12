@@ -5,6 +5,9 @@ const morgan = require('morgan');
 const mongoose = require('mongoose');
 require('dotenv').config();
 
+// Initialize trial manager (this will start the cron job)
+const trialManager = require('./src/services/trialManager');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -48,52 +51,8 @@ const connectDB = async () => {
     }
 };
 
-// User Schema
-const userSchema = new mongoose.Schema({
-    email: {
-        type: String,
-        required: true,
-        unique: true,
-        lowercase: true,
-        trim: true
-    },
-    password: {
-        type: String,
-        required: true,
-        minlength: 6
-    },
-    firstName: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    lastName: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    subscription: {
-        status: {
-            type: String,
-            enum: ['free', 'monthly', 'annual', 'lifetime'],
-            default: 'free'
-        },
-        startDate: Date,
-        endDate: Date,
-        promoCode: String,
-        autoRenew: {
-            type: Boolean,
-            default: true
-        }
-    },
-    preferences: {
-        targetLanguages: [String]
-    }
-}, {
-    timestamps: true
-});
-
-const User = mongoose.model('User', userSchema);
+// Import User model
+const User = require('./src/models/User');
 
 // Simple health check that responds immediately
 app.get('/health', (req, res) => {
@@ -353,6 +312,10 @@ app.post('/api/subscriptions/apply-promo', async (req, res) => {
         res.status(500).json({ error: 'Failed to apply promo code' });
     }
 });
+
+// Import and use additional subscription routes (for Square integration)
+const subscriptionRoutes = require('./src/routes/subscriptions');
+app.use('/api/subscriptions', subscriptionRoutes);
 
 // Error handling
 app.use((err, req, res, next) => {

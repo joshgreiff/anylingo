@@ -1,8 +1,62 @@
 const express = require('express');
 const auth = require('../middleware/auth');
 const squareService = require('../services/squareService');
+const trialManager = require('../services/trialManager');
 const User = require('../models/User');
 const router = express.Router();
+
+// Get Square configuration for frontend
+router.get('/square-config', (req, res) => {
+    try {
+        // Return only the public Square configuration needed for Web Payments SDK
+        res.json({
+            applicationId: process.env.SQUARE_APPLICATION_ID,
+            locationId: process.env.SQUARE_LOCATION_ID,
+            environment: process.env.SQUARE_ENVIRONMENT || 'sandbox'
+        });
+    } catch (error) {
+        console.error('Error getting Square config:', error);
+        res.status(500).json({ error: 'Failed to get payment configuration' });
+    }
+});
+
+// Helper function to convert trial to paid subscription
+async function convertTrialToSubscription(user) {
+    try {
+        // Create the actual Square subscription
+        const subscription = await squareService.createSubscriptionWithDelay(
+            user.subscription.squareCustomerId,
+            user.subscription.squareCardId,
+            user.subscription.plan,
+            new Date().toISOString().split('T')[0]
+        );
+
+        // Update user subscription status
+        user.subscription.status = 'active';
+        user.subscription.squareSubscriptionId = subscription.id;
+        user.subscription.startDate = new Date();
+        
+        // Set next billing date based on plan
+        const nextBillingDate = new Date();
+        if (user.subscription.plan === 'annual') {
+            nextBillingDate.setFullYear(nextBillingDate.getFullYear() + 1);
+        } else {
+            nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
+        }
+        user.subscription.endDate = nextBillingDate;
+
+        await user.save();
+        
+        console.log(`Converted trial to paid subscription for user: ${user.email}`);
+        return subscription;
+    } catch (error) {
+        console.error('Error converting trial to subscription:', error);
+        // Mark subscription as failed and notify user
+        user.subscription.status = 'payment_failed';
+        await user.save();
+        throw error;
+    }
+}
 
 // Promo codes for testing
 const PROMO_CODES = {
@@ -42,6 +96,69 @@ router.post('/validate-promo', async (req, res) => {
     } catch (error) {
         console.error('Validate promo code error:', error);
         res.status(500).json({ error: 'Failed to validate promo code' });
+    }
+});
+
+// Create free trial with payment method
+router.post('/create-trial', auth, async (req, res) => {
+    try {
+        const { planType, cardToken, trialDays = 7 } = req.body;
+        const user = await User.findById(req.userId);
+        
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Check if user already has an active subscription or trial
+        if (user.subscription.status === 'active' || user.subscription.status === 'trial') {
+            return res.status(400).json({ error: 'User already has an active subscription' });
+        }
+
+        // Create or get Square customer
+        let squareCustomer;
+        if (user.subscription.squareCustomerId) {
+            squareCustomer = await squareService.getCustomer(user.subscription.squareCustomerId);
+        } else {
+            squareCustomer = await squareService.createCustomer(user);
+            user.subscription.squareCustomerId = squareCustomer.id;
+        }
+
+        // Create and store the payment method (card) for future use
+        const card = await squareService.createCard(squareCustomer.id, cardToken);
+
+        // Calculate trial end date
+        const trialEndDate = new Date();
+        trialEndDate.setDate(trialEndDate.getDate() + trialDays);
+
+        // Update user subscription to trial status
+        user.subscription = {
+            ...user.subscription,
+            status: 'trial',
+            plan: planType,
+            startDate: new Date(),
+            endDate: trialEndDate,
+            trialEndDate: trialEndDate,
+            squareCustomerId: squareCustomer.id,
+            squareCardId: card.id,
+            autoRenew: true,
+            paymentMethod: 'square'
+        };
+
+        await user.save();
+
+        // The trialManager will automatically check for expired trials every hour
+        // No need for setTimeout - this is handled by the cron job
+
+        res.json({
+            message: 'Free trial started successfully',
+            trialEndDate: trialEndDate,
+            plan: planType,
+            daysRemaining: trialDays
+        });
+
+    } catch (error) {
+        console.error('Create trial error:', error);
+        res.status(500).json({ error: 'Failed to start free trial' });
     }
 });
 
@@ -158,6 +275,39 @@ router.post('/create', auth, async (req, res) => {
     } catch (error) {
         console.error('Create subscription error:', error);
         res.status(500).json({ error: 'Failed to create subscription' });
+    }
+});
+
+// Cancel trial before it converts to paid subscription
+router.post('/cancel-trial', auth, async (req, res) => {
+    try {
+        await trialManager.cancelTrial(req.userId);
+
+        res.json({
+            message: 'Trial cancelled successfully',
+            status: 'cancelled'
+        });
+
+    } catch (error) {
+        console.error('Cancel trial error:', error);
+        res.status(500).json({ error: error.message || 'Failed to cancel trial' });
+    }
+});
+
+// Get trial status
+router.get('/trial-status', auth, async (req, res) => {
+    try {
+        const trialStatus = await trialManager.checkUserTrialStatus(req.userId);
+        
+        if (!trialStatus) {
+            return res.status(404).json({ error: 'No active trial found' });
+        }
+
+        res.json(trialStatus);
+
+    } catch (error) {
+        console.error('Get trial status error:', error);
+        res.status(500).json({ error: 'Failed to get trial status' });
     }
 });
 

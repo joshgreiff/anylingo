@@ -1,0 +1,313 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import Script from 'next/script'
+
+const API_URL = 'https://anylingo-production.up.railway.app'
+
+export default function PaymentPage() {
+  const router = useRouter()
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual' | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [userEmail, setUserEmail] = useState('')
+  const [showPaymentForm, setShowPaymentForm] = useState(false)
+  const [squarePayments, setSquarePayments] = useState<any>(null)
+  const [card, setCard] = useState<any>(null)
+  const [error, setError] = useState('')
+  const [squareConfig, setSquareConfig] = useState<any>(null)
+
+  useEffect(() => {
+    const token = localStorage.getItem('anylingo_token')
+    if (!token) {
+      router.push('/signup?mode=login')
+      return
+    }
+
+    const userData = JSON.parse(localStorage.getItem('anylingo_user_data') || '{}')
+    if (userData.email) {
+      setUserEmail(userData.email)
+    }
+
+    // Fetch Square configuration from backend
+    fetchSquareConfig()
+  }, [router])
+
+  const fetchSquareConfig = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/subscriptions/square-config`)
+      if (response.ok) {
+        const config = await response.json()
+        setSquareConfig(config)
+      } else {
+        console.error('Failed to fetch Square config')
+        setError('Unable to load payment system configuration.')
+      }
+    } catch (error) {
+      console.error('Error fetching Square config:', error)
+      setError('Unable to connect to payment system.')
+    }
+  }
+
+  const initializeSquare = async () => {
+    if (typeof window !== 'undefined' && (window as any).Square && squareConfig) {
+      try {
+        // Check if Square credentials are configured
+        const { applicationId, locationId } = squareConfig
+        
+        if (!applicationId || !locationId) {
+          setError('Square payment system is not configured. Please contact support.')
+          return
+        }
+        
+        const payments = (window as any).Square.payments(applicationId, locationId)
+        setSquarePayments(payments)
+        
+        const cardElement = await payments.card({
+          style: {
+            input: {
+              fontSize: '16px',
+              fontFamily: 'system-ui, sans-serif',
+              color: '#374151',
+              '::placeholder': {
+                color: '#9CA3AF'
+              }
+            }
+          }
+        })
+        await cardElement.attach('#card-container')
+        setCard(cardElement)
+      } catch (error) {
+        console.error('Failed to initialize Square:', error)
+        setError('Payment system initialization failed. Please refresh and try again.')
+      }
+    } else {
+      setError('Square payment system is loading. Please wait a moment and try again.')
+    }
+  }
+
+  // Initialize Square when config is loaded and payment form is shown
+  useEffect(() => {
+    if (squareConfig && showPaymentForm) {
+      setTimeout(() => {
+        initializeSquare()
+      }, 100)
+    }
+  }, [squareConfig, showPaymentForm])
+
+  const handlePlanSelection = (plan: 'monthly' | 'annual') => {
+    setSelectedPlan(plan)
+    setShowPaymentForm(true)
+    setError('') // Clear any previous errors
+  }
+
+  const handleStartTrialWithPayment = async () => {
+    if (!selectedPlan || !card || !squarePayments) {
+      setError('Please enter your payment information.')
+      return
+    }
+
+    setIsLoading(true)
+    setError('')
+
+    try {
+      const tokenResult = await squarePayments.tokenize()
+      
+      if (tokenResult.status === 'OK') {
+        const token = localStorage.getItem('anylingo_token')
+        
+        const response = await fetch(`${API_URL}/api/subscriptions/create-trial`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            planType: selectedPlan,
+            cardToken: tokenResult.token,
+            trialDays: 7
+          })
+        })
+
+        const data = await response.json()
+
+        if (response.ok) {
+          localStorage.setItem('anylingo_trial_info', JSON.stringify({
+            plan: selectedPlan,
+            trialEndDate: data.trialEndDate,
+            subscriptionId: data.subscriptionId
+          }))
+          
+          router.push('/app')
+        } else {
+          setError(data.error || 'Failed to start trial. Please try again.')
+        }
+      } else {
+        setError('Payment information is invalid. Please check your card details.')
+      }
+    } catch (error) {
+      console.error('Error starting trial:', error)
+      setError('Failed to process payment information. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600">Setting up your free trial...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <Script 
+        src="https://sandbox-web.squarecdn.com/v1/square.js" 
+        onLoad={() => console.log('Square SDK loaded')}
+      />
+      
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <header className="bg-gradient-to-r from-blue-600 to-green-600 text-white p-4 shadow-md">
+          <div className="container mx-auto flex items-center justify-between">
+            <h1 className="text-2xl font-bold">AnyLingo™</h1>
+            <span className="text-blue-100">{userEmail}</span>
+          </div>
+        </header>
+
+        <main className="container mx-auto p-4 mt-8 max-w-4xl">
+          {/* Free Trial Banner */}
+          <div className="bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-xl p-6 mb-8 text-center">
+            <h2 className="text-3xl font-bold mb-2">🎉 7-Day FREE Trial</h2>
+            <p className="text-lg">Full access to everything • No charge for 7 days • Cancel anytime</p>
+          </div>
+
+          {!showPaymentForm ? (
+            <>
+              {/* Plan Selection */}
+              <div className="text-center mb-8">
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Choose Your Plan</h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                {/* Monthly Plan */}
+                <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200 hover:border-blue-500 transition-colors">
+                  <div className="text-center">
+                    <h4 className="text-xl font-bold text-gray-900 mb-2">Monthly</h4>
+                    <div className="text-3xl font-bold text-blue-600 mb-4">
+                      $2.99<span className="text-lg text-gray-500">/month</span>
+                    </div>
+                    <p className="text-sm text-gray-500 mb-4">After 7-day free trial</p>
+                    
+                    <button 
+                      onClick={() => handlePlanSelection('monthly')}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors"
+                    >
+                      Start Free Trial
+                    </button>
+                  </div>
+                </div>
+
+                {/* Annual Plan */}
+                <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-green-500 relative">
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-green-500 text-white px-4 py-1 rounded-full text-sm font-bold">Save 30%</span>
+                  </div>
+                  
+                  <div className="text-center">
+                    <h4 className="text-xl font-bold text-gray-900 mb-2">Annual</h4>
+                    <div className="text-3xl font-bold text-green-600 mb-2">
+                      $24.99<span className="text-lg text-gray-500">/year</span>
+                    </div>
+                    <div className="text-sm text-gray-500 mb-4">$2.08/month • Save $10.89!</div>
+                    
+                    <button 
+                      onClick={() => handlePlanSelection('annual')}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors"
+                    >
+                      Start Free Trial
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Simple Trust Indicators */}
+              <div className="bg-white rounded-xl shadow-lg p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-green-600 text-2xl mb-2">✓</div>
+                    <p className="text-sm text-gray-600">7 days completely free</p>
+                  </div>
+                  <div>
+                    <div className="text-blue-600 text-2xl mb-2">🔒</div>
+                    <p className="text-sm text-gray-600">Secure payment processing</p>
+                  </div>
+                  <div>
+                    <div className="text-purple-600 text-2xl mb-2">↩</div>
+                    <p className="text-sm text-gray-600">Cancel anytime during trial</p>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* Payment Form */
+            <div className="max-w-xl mx-auto">
+              <div className="bg-white rounded-xl shadow-lg p-6">
+                <div className="text-center mb-6">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Secure Your Free Trial</h3>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                    <p className="text-blue-800 font-semibold">
+                      {selectedPlan === 'monthly' ? 'Monthly Plan - $2.99/month' : 'Annual Plan - $24.99/year'}
+                    </p>
+                    <p className="text-blue-700 text-sm">Starts {new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString()}</p>
+                  </div>
+                </div>
+
+                {/* Square Payment Form */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Payment Information</label>
+                  <div id="card-container" className="border border-gray-300 rounded-lg p-4 min-h-[60px]">
+                    {/* Square will inject the card form here */}
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                    <p className="text-red-800 text-sm">{error}</p>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowPaymentForm(false)}
+                    className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 px-4 rounded-lg font-medium transition-colors"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleStartTrialWithPayment}
+                    disabled={isLoading}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-3 px-4 rounded-lg font-medium transition-colors"
+                  >
+                    {isLoading ? 'Processing...' : 'Start FREE Trial'}
+                  </button>
+                </div>
+
+                {/* Simple Security Note */}
+                <p className="text-center text-xs text-gray-500 mt-4">
+                  🔒 Your payment info is secure and encrypted • No charges for 7 days
+                </p>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+    </>
+  )
+} 
