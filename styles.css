@@ -1,0 +1,46 @@
+.header {
+    background: linear-gradient(to right, #3b82f6, #10b981);
+}
+.btn-blue {
+    background-color: #3b82f6;
+}
+.btn-blue:hover {
+    background-color: #2563eb;
+}
+.btn-green {
+    background-color: #10b981;
+}
+.btn-green:hover {
+    background-color: #059669;
+}
+.btn-red {
+    background-color: #ef4444;
+}
+.btn-red:hover {
+    background-color: #dc2626;
+}
+.btn-purple {
+    background-color: #8b5cf6;
+}
+.btn-purple:hover {
+    background-color: #7c3aed;
+}
+.btn-gray {
+    background-color: #6b7280;
+}
+.btn-gray:hover {
+    background-color: #4b5563;
+}
+.btn-pink {
+    background-color: #ec4899;
+}
+.btn-pink:hover {
+    background-color: #db2777;
+}
+.btn-orange {
+    background-color: #f97316;
+}
+.btn-orange:hover {
+    background-color: #ea580c;
+}
+

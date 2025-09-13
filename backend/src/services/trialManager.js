@@ -4,7 +4,12 @@ const squareService = require('./squareService');
 
 class TrialManager {
     constructor() {
-        this.startTrialCheckJob();
+        // Only start cron job in production or when explicitly enabled
+        if (process.env.NODE_ENV === 'production' || process.env.ENABLE_CRON === 'true') {
+            this.startTrialCheckJob();
+        } else {
+            console.log('Trial management cron job disabled in development');
+        }
     }
 
     // Run every hour to check for expired trials

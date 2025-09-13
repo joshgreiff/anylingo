@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 const API_URL = 'https://anylingo-production.up.railway.app'
 
-export default function SignupPage() {
+function SignupPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isLogin, setIsLogin] = useState(false)
@@ -64,12 +64,12 @@ export default function SignupPage() {
       const userData = {
         firstName,
         lastName,
-        email: formData.get('email'),
-        password: formData.get('password'),
+        email: formData.get('email') as string,
+        password: formData.get('password') as string,
         preferences: {
-          targetLanguages: [formData.get('targetLanguage')]
+          targetLanguages: [formData.get('targetLanguage') as string]
         },
-        promoCode: formData.get('promoCode')
+        promoCode: formData.get('promoCode') as string
       }
 
       const response = await fetch(`${API_URL}/api/auth/register`, {
@@ -426,5 +426,13 @@ export default function SignupPage() {
         </div>
       </section>
     </div>
+  )
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SignupPageContent />
+    </Suspense>
   )
 } 

@@ -1,0 +1,1124 @@
+﻿        // Global variables
+        let currentSection = 'home';
+        let currentLesson = null;
+        let lessons = {};
+        
+        // Speech synthesis variables
+        let synth = null;
+        let utterance = null;
+        let isPlaying = false;
+        let isLooping = false;
+        let speechSynthesisSupported = false;
+        
+        // Recording variables
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let audioBlob = null;
+        let audioUrl = null;
+        let audioElement = null;
+        let isRecording = false;
+        let recordingSupported = false;
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check for speech synthesis support
+            if (typeof window.speechSynthesis !== 'undefined') {
+                synth = window.speechSynthesis;
+                speechSynthesisSupported = true;
+                
+                // Initialize voices
+                initVoices();
+                
+                // Chrome needs a little help with voices
+                if (window.chrome) {
+                    if (synth.onvoiceschanged !== undefined) {
+                        synth.onvoiceschanged = initVoices;
+                    }
+                }
+            }
+            
+            // Check for recording support
+            if (navigator.mediaDevices && typeof MediaRecorder !== 'undefined') {
+                recordingSupported = true;
+            }
+            
+            // Load lessons from localStorage
+            loadLessons();
+            
+            // Load current lesson if available
+            const savedCurrentLesson = localStorage.getItem('currentLesson');
+            if (savedCurrentLesson) {
+                try {
+                    currentLesson = JSON.parse(savedCurrentLesson);
+                    updateAllSections();
+                } catch (error) {
+                    console.error('Error loading current lesson:', error);
+                }
+            }
+            
+            // Initialize language options
+            initLanguageOptions();
+            
+            // Set up event listeners
+            setupEventListeners();
+        });
+
+        // Initialize voices for speech synthesis
+        function initVoices() {
+            if (!speechSynthesisSupported || !synth) return;
+            
+            const voices = synth.getVoices();
+            const voiceSelect = document.getElementById('voiceSelect');
+            
+            // Clear existing options
+            voiceSelect.innerHTML = '';
+            
+            if (voices.length === 0) {
+                voiceSelect.innerHTML = '<option value="">No voices available</option>';
+                return;
+            }
+            
+            // Add voices to select element
+            voices.forEach((voice, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = `${voice.name} (${voice.lang})`;
+                voiceSelect.appendChild(option);
+            });
+            
+            // Try to select a voice that matches the detected language
+            if (currentLesson && currentLesson.content) {
+                const detectedLang = detectLanguage(currentLesson.content);
+                for (let i = 0; i < voices.length; i++) {
+                    if (voices[i].lang.startsWith(detectedLang)) {
+                        voiceSelect.value = i;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Initialize language options for translation
+        function initLanguageOptions() {
+            const languages = [
+                { code: 'english', name: 'English' },
+                { code: 'spanish', name: 'Spanish' },
+                { code: 'french', name: 'French' },
+                { code: 'german', name: 'German' },
+                { code: 'italian', name: 'Italian' },
+                { code: 'portuguese', name: 'Portuguese' },
+                { code: 'russian', name: 'Russian' },
+                { code: 'chinese', name: 'Chinese' },
+                { code: 'japanese', name: 'Japanese' },
+                { code: 'korean', name: 'Korean' },
+                { code: 'arabic', name: 'Arabic' },
+                { code: 'hindi', name: 'Hindi' }
+            ];
+            
+            const sourceLanguage = document.getElementById('sourceLanguage');
+            const targetLanguage = document.getElementById('targetLanguage');
+            
+            // Add languages to source select (already has Auto-detect)
+            languages.forEach(lang => {
+                const option = document.createElement('option');
+                option.value = lang.code;
+                option.textContent = lang.name;
+                sourceLanguage.appendChild(option);
+            });
+            
+            // Add languages to target select
+            languages.forEach(lang => {
+                const option = document.createElement('option');
+                option.value = lang.code;
+                option.textContent = lang.name;
+                targetLanguage.appendChild(option);
+            });
+        }
+
+        // Set up event listeners
+        function setupEventListeners() {
+            // Navigation buttons
+            document.getElementById('createLessonBtn').addEventListener('click', () => showSection('createLesson'));
+            document.getElementById('contentBtn').addEventListener('click', () => showSection('content'));
+            document.getElementById('readAloudBtn').addEventListener('click', () => showSection('readAloud'));
+            document.getElementById('translateBtn').addEventListener('click', () => showSection('translate'));
+            document.getElementById('drillsBtn').addEventListener('click', () => showSection('drills'));
+            document.getElementById('recordBtn').addEventListener('click', () => showSection('record'));
+            
+            // Create Lesson section
+            document.getElementById('saveLessonBtn').addEventListener('click', saveLesson);
+            document.getElementById('createNewLessonBtn').addEventListener('click', resetLessonForm);
+            
+            // ReadAloud section
+            document.getElementById('startReadingBtn').addEventListener('click', startReading);
+            document.getElementById('pauseReadingBtn').addEventListener('click', pauseReading);
+            document.getElementById('stopReadingBtn').addEventListener('click', stopReading);
+            document.getElementById('loopReadingBtn').addEventListener('click', toggleLooping);
+            document.getElementById('rateRange').addEventListener('input', updateRate);
+            
+            // Translation section
+            document.getElementById('translateBtn').addEventListener('click', translateText);
+            
+            // Drills section
+            document.getElementById('drill1Btn').addEventListener('click', () => showDrill(1));
+            document.getElementById('drill2Btn').addEventListener('click', () => showDrill(2));
+            document.getElementById('drill3Btn').addEventListener('click', () => showDrill(3));
+            document.getElementById('drill4Btn').addEventListener('click', () => showDrill(4));
+            document.getElementById('drill5Btn').addEventListener('click', () => showDrill(5));
+            document.getElementById('highlightTextBtn').addEventListener('click', enableHighlighting);
+            document.getElementById('clearHighlightsBtn').addEventListener('click', clearHighlights);
+            document.getElementById('startDrill1Btn').addEventListener('click', startDrill1);
+            document.getElementById('startDrill3Btn').addEventListener('click', startDrill3);
+            document.getElementById('startRecordingBtn').addEventListener('click', startDrillRecording);
+            document.getElementById('stopRecordingBtn').addEventListener('click', stopDrillRecording);
+            document.getElementById('playRecordingBtn').addEventListener('click', playDrillRecording);
+            document.getElementById('reRecordBtn').addEventListener('click', resetDrillRecording);
+            
+            // Record section
+            document.getElementById('startMainRecordingBtn').addEventListener('click', startMainRecording);
+            document.getElementById('stopMainRecordingBtn').addEventListener('click', stopMainRecording);
+            document.getElementById('playMainRecordingBtn').addEventListener('click', playMainRecording);
+            document.getElementById('saveRecordingBtn').addEventListener('click', saveRecording);
+        }
+
+        // Show a specific section
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('main > section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            
+            // Show the selected section
+            document.getElementById(sectionId).classList.remove('hidden');
+            
+            // Update current section
+            currentSection = sectionId;
+            
+            // Perform section-specific updates
+            switch (sectionId) {
+                case 'content':
+                    updateContentSection();
+                    break;
+                case 'readAloud':
+                    updateReadAloudContent();
+                    break;
+                case 'translate':
+                    updateTranslateContent();
+                    break;
+                case 'drills':
+                    updateDrillsContent();
+                    break;
+                case 'record':
+                    updateRecordContent();
+                    break;
+            }
+        }
+
+        // Save a lesson
+        function saveLesson() {
+            const title = document.getElementById('lessonTitle').value.trim();
+            const content = document.getElementById('lessonContent').value.trim();
+            
+            if (!title) {
+                showMessage('createLessonMessage', 'Please enter a lesson title', 'error');
+                return;
+            }
+            
+            if (!content) {
+                showMessage('createLessonMessage', 'Please enter lesson content', 'error');
+                return;
+            }
+            
+            // Save the lesson
+            lessons[title] = {
+                content: content,
+                created: new Date().toLocaleDateString()
+            };
+            
+            // Save to localStorage
+            localStorage.setItem('lessons', JSON.stringify(lessons));
+            
+            // Update current lesson
+            currentLesson = {
+                title: title,
+                content: content
+            };
+            localStorage.setItem('currentLesson', JSON.stringify(currentLesson));
+            
+            // Update all sections
+            updateAllSections();
+            
+            // Show success message
+            showMessage('createLessonMessage', 'Lesson saved successfully!', 'success');
+        }
+
+        // Reset the lesson form
+        function resetLessonForm() {
+            document.getElementById('lessonTitle').value = '';
+            document.getElementById('lessonContent').value = '';
+            document.getElementById('createLessonMessage').classList.add('hidden');
+        }
+
+        // Load lessons from localStorage
+        function loadLessons() {
+            const savedLessons = localStorage.getItem('lessons');
+            if (savedLessons) {
+                try {
+                    lessons = JSON.parse(savedLessons);
+                } catch (error) {
+                    console.error('Error loading lessons:', error);
+                    lessons = {};
+                }
+            }
+        }
+
+        // Load a specific lesson
+        function loadLesson(title) {
+            if (!lessons[title]) return;
+            
+            // Update current lesson
+            currentLesson = {
+                title: title,
+                content: lessons[title].content
+            };
+            localStorage.setItem('currentLesson', JSON.stringify(currentLesson));
+            
+            // Update display
+            document.getElementById('selectedLessonTitle').textContent = `Lesson: ${title}`;
+            document.getElementById('selectedLessonContent').innerHTML = `<pre class="whitespace-pre-wrap font-sans">${lessons[title].content}</pre>`;
+            
+            // Update all sections
+            updateAllSections();
+            
+            // Show success message
+            showMessage('contentMessage', `Lesson "${title}" loaded successfully!`, 'success');
+        }
+
+        // Delete a lesson
+        function deleteLesson(title) {
+            if (!lessons[title]) return;
+            
+            // Confirm deletion
+            if (!confirm(`Are you sure you want to delete the lesson "${title}"?`)) {
+                return;
+            }
+            
+            // Delete the lesson
+            delete lessons[title];
+            
+            // Save to localStorage
+            localStorage.setItem('lessons', JSON.stringify(lessons));
+            
+            // Clear current lesson if it's the deleted one
+            if (currentLesson && currentLesson.title === title) {
+                currentLesson = null;
+                localStorage.removeItem('currentLesson');
+            }
+            
+            // Update all sections
+            updateAllSections();
+            
+            // Show success message
+            showMessage('contentMessage', `Lesson "${title}" deleted successfully!`, 'success');
+        }
+
+        // Update all sections with current lesson
+        function updateAllSections() {
+            updateContentSection();
+            updateReadAloudContent();
+            updateTranslateContent();
+            updateDrillsContent();
+            updateRecordContent();
+            updateReadAloudButtons();
+        }
+
+        // Update the Content section
+        function updateContentSection() {
+            const lessonsList = document.getElementById('lessonsList');
+            
+            // Clear existing lessons
+            lessonsList.innerHTML = '';
+            
+            // Check if there are any lessons
+            const lessonTitles = Object.keys(lessons);
+            if (lessonTitles.length === 0) {
+                lessonsList.innerHTML = '<p class="text-gray-500">No lessons found. Create a new lesson to get started.</p>';
+                return;
+            }
+            
+            // Add lessons to the list
+            lessonTitles.forEach(title => {
+                const lessonItem = document.createElement('div');
+                lessonItem.className = 'flex justify-between items-center p-2 hover:bg-gray-100 rounded';
+                
+                const lessonTitle = document.createElement('button');
+                lessonTitle.className = 'text-blue-600 hover:text-blue-800 text-left';
+                lessonTitle.textContent = title;
+                lessonTitle.onclick = () => loadLesson(title);
+                
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'text-red-600 hover:text-red-800';
+                deleteButton.innerHTML = '✕';
+                deleteButton.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteLesson(title);
+                };
+                
+                lessonItem.appendChild(lessonTitle);
+                lessonItem.appendChild(deleteButton);
+                lessonsList.appendChild(lessonItem);
+            });
+            
+            // Update selected lesson display
+            if (currentLesson && currentLesson.title && currentLesson.content) {
+                document.getElementById('selectedLessonTitle').textContent = `Lesson: ${currentLesson.title}`;
+                document.getElementById('selectedLessonContent').innerHTML = `<pre class="whitespace-pre-wrap font-sans">${currentLesson.content}</pre>`;
+            } else {
+                document.getElementById('selectedLessonTitle').textContent = 'Select a Lesson';
+                document.getElementById('selectedLessonContent').innerHTML = '<p class="text-gray-500 text-center">Select a lesson from the list to view its content</p>';
+            }
+        }
+
+        // Update the ReadAloud content
+        function updateReadAloudContent() {
+            const titleElement = document.getElementById('readAloudLessonTitle');
+            const contentElement = document.getElementById('readAloudContent');
+            const languageElement = document.getElementById('detectedLanguage');
+            const languageCodeElement = document.getElementById('languageCode');
+            
+            if (currentLesson && currentLesson.title && currentLesson.content) {
+                titleElement.textContent = `Current Lesson: ${currentLesson.title}`;
+                contentElement.innerHTML = `<pre class="whitespace-pre-wrap font-sans">${currentLesson.content}</pre>`;
+                
+                // Detect language
+                const detectedLang = detectLanguage(currentLesson.content);
+                languageCodeElement.textContent = detectedLang;
+                languageElement.classList.remove('hidden');
+                
+                // Enable start button
+                document.getElementById('startReadingBtn').disabled = false;
+            } else {
+                titleElement.textContent = 'No lesson loaded';
+                contentElement.innerHTML = '<p class="text-gray-500 text-center">No lesson content available</p>';
+                languageElement.classList.add('hidden');
+                
+                // Disable start button
+                document.getElementById('startReadingBtn').disabled = true;
+            }
+        }
+
+        // Update the Translation content
+        function updateTranslateContent() {
+            const titleElement = document.getElementById('translateLessonTitle');
+            const originalTextElement = document.getElementById('originalText');
+            
+            if (currentLesson && currentLesson.title && currentLesson.content) {
+                titleElement.textContent = `Current Lesson: ${currentLesson.title}`;
+                originalTextElement.innerHTML = `<pre class="whitespace-pre-wrap font-sans">${currentLesson.content}</pre>`;
+                
+                // Enable translate button
+                document.getElementById('translateBtn').disabled = false;
+            } else {
+                titleElement.textContent = 'No lesson loaded';
+                originalTextElement.innerHTML = '<p class="text-gray-500 text-center">No lesson content available</p>';
+                
+                // Disable translate button
+                document.getElementById('translateBtn').disabled = true;
+            }
+        }
+
+        // Translate text
+        async function translateText() {
+            if (!currentLesson || !currentLesson.content) {
+                showMessage('translateMessage', 'No content to translate', 'error');
+                return;
+            }
+            
+            // Get translation settings
+            const sourceLanguage = document.getElementById('sourceLanguage').value;
+            const targetLanguage = document.getElementById('targetLanguage').value;
+            const translationMode = document.querySelector('input[name="translationMode"]:checked').value;
+            
+            showMessage('translateMessage', 'Translating...', 'info');
+            
+            // Get text to translate based on mode
+            let textToTranslate = currentLesson.content;
+            
+            if (translationMode === 'sentence') {
+                // Get the first sentence (simplified approach)
+                const sentenceMatch = currentLesson.content.match(/^.*?[.!?](?:\s|$)/);
+                textToTranslate = sentenceMatch ? sentenceMatch[0] : currentLesson.content;
+            } else if (translationMode === 'paragraph') {
+                // Get the first paragraph (simplified approach)
+                const paragraphMatch = currentLesson.content.match(/^.*?(\n\n|\r\n\r\n|$)/);
+                textToTranslate = paragraphMatch ? paragraphMatch[0] : currentLesson.content;
+            }
+            
+            try {
+                // Use real translation API
+                const translated = await realTranslate(textToTranslate, sourceLanguage, targetLanguage);
+                
+                // Display translated text
+                document.getElementById('translatedText').innerHTML = `<pre class="whitespace-pre-wrap font-sans">${translated}</pre>`;
+                
+                showMessage('translateMessage', 'Translation completed', 'success');
+            } catch (error) {
+                console.error("Translation error:", error);
+                showMessage('translateMessage', 'Translation failed: ' + error.message, 'error');
+            }
+        }
+
+        // Real translation function using LibreTranslate API
+        async function realTranslate(text, sourceLanguage, targetLanguage) {
+            // Map the app's language codes to LibreTranslate codes
+            const languageMap = {
+                'auto': 'auto',
+                'english': 'en',
+                'spanish': 'es',
+                'french': 'fr',
+                'german': 'de',
+                'italian': 'it',
+                'portuguese': 'pt',
+                'russian': 'ru',
+                'chinese': 'zh',
+                'japanese': 'ja',
+                'korean': 'ko',
+                'arabic': 'ar',
+                'hindi': 'hi'
+            };
+            
+            // Convert language names to codes
+            const sourceLang = languageMap[sourceLanguage.toLowerCase()] || 'auto';
+            const targetLang = languageMap[targetLanguage.toLowerCase()] || 'en';
+            
+            // If source and target are the same, return the original text
+            if ((sourceLang === targetLang) || (sourceLang === 'auto' && detectLanguage(text) === targetLang)) {
+                return text;
+            }
+            
+            // Use the LibreTranslate API
+            const apiUrl = 'https://translate.argosopentech.com/translate';
+            
+            // Prepare the request data
+            const requestData = {
+                q: text,
+                source: sourceLang === 'auto' ? 'auto_detect' : sourceLang,
+                target: targetLang,
+                format: 'text'
+            };
+            
+            // Make the API request
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                body: JSON.stringify(requestData),
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            // Check if the request was successful
+            if (!response.ok) {
+                throw new Error(`Translation API error: ${response.status} ${response.statusText}`);
+            }
+            
+            // Parse the response
+            const data = await response.json();
+            
+            // Check if translation was successful
+            if (data && data.translatedText) {
+                return data.translatedText;
+            } else {
+                throw new Error('Translation failed: No translated text returned');
+            }
+        }
+
+        // Update Drills content
+        function updateDrillsContent() {
+            const titleElement = document.getElementById('drillsLessonTitle');
+            const contentElement = document.getElementById('drillsContent');
+            
+            if (currentLesson && currentLesson.title && currentLesson.content) {
+                titleElement.textContent = `Current Lesson: ${currentLesson.title}`;
+                contentElement.innerHTML = `<pre class="whitespace-pre-wrap font-sans">${currentLesson.content}</pre>`;
+            } else {
+                titleElement.textContent = 'No lesson loaded';
+                contentElement.innerHTML = '<p class="text-gray-500 text-center">Lesson content will appear here</p>';
+            }
+        }
+
+        // Show a specific drill
+        function showDrill(drillNumber) {
+            // Hide all drill instructions
+            document.querySelectorAll('[id^="drill"][id$="Instructions"]').forEach(element => {
+                element.classList.add('hidden');
+            });
+            
+            // Show the selected drill instructions
+            document.getElementById(`drill${drillNumber}Instructions`).classList.remove('hidden');
+            
+            // Show drill instructions message
+            const instructionsElement = document.getElementById('drillInstructions');
+            const instructionsTextElement = document.getElementById('drillInstructionsText');
+            instructionsTextElement.textContent = `Drill ${drillNumber} selected. Follow the instructions below.`;
+            instructionsElement.classList.remove('hidden');
+        }
+
+        // Enable text highlighting for Drill 2
+        function enableHighlighting() {
+            const contentElement = document.getElementById('drillsContent');
+            
+            // Add click event listener to content
+            contentElement.addEventListener('mouseup', highlightSelection);
+            
+            // Show message
+            showMessage('drillInstructions', 'Select text to highlight it. Click "Clear Highlights" to reset.', 'info');
+        }
+
+        // Highlight selected text
+        function highlightSelection() {
+            const selection = window.getSelection();
+            if (selection.rangeCount === 0) return;
+            
+            const range = selection.getRangeAt(0);
+            const selectedText = selection.toString().trim();
+            
+            if (!selectedText) return;
+            
+            // Create a span element to wrap the selected text
+            const highlightSpan = document.createElement('span');
+            highlightSpan.className = 'bg-yellow-200';
+            highlightSpan.textContent = selectedText;
+            
+            // Replace the selected text with the highlighted span
+            range.deleteContents();
+            range.insertNode(highlightSpan);
+            
+            // Clear the selection
+            selection.removeAllRanges();
+        }
+
+        // Clear all highlights
+        function clearHighlights() {
+            const contentElement = document.getElementById('drillsContent');
+            
+            // Get the original content
+            if (currentLesson && currentLesson.content) {
+                contentElement.innerHTML = `<pre class="whitespace-pre-wrap font-sans">${currentLesson.content}</pre>`;
+            }
+            
+            // Show message
+            showMessage('drillInstructions', 'Highlights cleared.', 'success');
+        }
+
+        // Start Drill 1 (Listen and Follow)
+        function startDrill1() {
+            if (!currentLesson || !currentLesson.content) {
+                showMessage('drillInstructions', 'No lesson content available', 'error');
+                return;
+            }
+            
+            // Start reading the content
+            startReading();
+            
+            // Show message
+            showMessage('drillInstructions', 'Listening started. Follow along with the text.', 'info');
+        }
+
+        // Start Drill 3 (Read and Speak Simultaneously)
+        function startDrill3() {
+            if (!currentLesson || !currentLesson.content) {
+                showMessage('drillInstructions', 'No lesson content available', 'error');
+                return;
+            }
+            
+            // Start reading the content
+            startReading();
+            
+            // Show message
+            showMessage('drillInstructions', 'Reading started. Try to speak along with the audio.', 'info');
+        }
+
+        // Start recording for Drill 4
+        function startDrillRecording() {
+            if (!recordingSupported) {
+                document.getElementById('recordingWarning').classList.remove('hidden');
+                return;
+            }
+            
+            // Request microphone access
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    // Create media recorder
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    // Set up event listeners
+                    mediaRecorder.addEventListener('dataavailable', event => {
+                        audioChunks.push(event.data);
+                    });
+                    
+                    mediaRecorder.addEventListener('stop', () => {
+                        // Create audio blob
+                        audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                        audioUrl = URL.createObjectURL(audioBlob);
+                        
+                        // Create audio element
+                        audioElement = new Audio(audioUrl);
+                        
+                        // Enable playback and re-record buttons
+                        document.getElementById('playRecordingBtn').disabled = false;
+                        document.getElementById('reRecordBtn').disabled = false;
+                        
+                        // Show message
+                        showMessage('drillInstructions', 'Recording completed. Click "Play Recording" to listen.', 'success');
+                    });
+                    
+                    // Start recording
+                    mediaRecorder.start();
+                    isRecording = true;
+                    
+                    // Update UI
+                    document.getElementById('startRecordingBtn').disabled = true;
+                    document.getElementById('stopRecordingBtn').disabled = false;
+                    
+                    // Show message
+                    showMessage('drillInstructions', 'Recording started. Read the text aloud, then click "Stop Recording".', 'info');
+                })
+                .catch(error => {
+                    console.error('Error accessing microphone:', error);
+                    document.getElementById('recordingWarning').classList.remove('hidden');
+                });
+        }
+
+        // Stop recording for Drill 4
+        function stopDrillRecording() {
+            if (!isRecording || !mediaRecorder) return;
+            
+            // Stop recording
+            mediaRecorder.stop();
+            isRecording = false;
+            
+            // Update UI
+            document.getElementById('startRecordingBtn').disabled = false;
+            document.getElementById('stopRecordingBtn').disabled = true;
+        }
+
+        // Play recording for Drill 4
+        function playDrillRecording() {
+            if (!audioElement) return;
+            
+            // Play the recording
+            audioElement.play();
+            
+            // Show message
+            showMessage('drillInstructions', 'Playing your recording...', 'info');
+        }
+
+        // Reset recording for Drill 4
+        function resetDrillRecording() {
+            // Reset recording state
+            audioChunks = [];
+            audioBlob = null;
+            audioUrl = null;
+            audioElement = null;
+            
+            // Update UI
+            document.getElementById('playRecordingBtn').disabled = true;
+            document.getElementById('reRecordBtn').disabled = true;
+            document.getElementById('startRecordingBtn').disabled = false;
+            
+            // Show message
+            showMessage('drillInstructions', 'Ready to record again.', 'info');
+        }
+
+        // Update Record content
+        function updateRecordContent() {
+            const titleElement = document.getElementById('recordLessonTitle');
+            const contentElement = document.getElementById('recordContent');
+            
+            if (currentLesson && currentLesson.title && currentLesson.content) {
+                titleElement.textContent = `Current Lesson: ${currentLesson.title}`;
+                contentElement.innerHTML = `<pre class="whitespace-pre-wrap font-sans">${currentLesson.content}</pre>`;
+                
+                // Show recordings list if available
+                document.getElementById('recordingsList').classList.remove('hidden');
+            } else {
+                titleElement.textContent = 'No lesson loaded';
+                contentElement.innerHTML = '<p class="text-gray-500 text-center">No lesson content available</p>';
+                
+                // Hide recordings list
+                document.getElementById('recordingsList').classList.add('hidden');
+            }
+            
+            // Check recording support
+            if (!recordingSupported) {
+                document.getElementById('recordingWarning').classList.remove('hidden');
+            } else {
+                document.getElementById('recordingWarning').classList.add('hidden');
+            }
+        }
+
+        // Start recording in the main Record section
+        function startMainRecording() {
+            if (!recordingSupported) {
+                document.getElementById('recordingWarning').classList.remove('hidden');
+                return;
+            }
+            
+            // Request microphone access
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    // Create media recorder
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    // Set up event listeners
+                    mediaRecorder.addEventListener('dataavailable', event => {
+                        audioChunks.push(event.data);
+                    });
+                    
+                    mediaRecorder.addEventListener('stop', () => {
+                        // Create audio blob
+                        audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                        audioUrl = URL.createObjectURL(audioBlob);
+                        
+                        // Create audio element
+                        audioElement = new Audio(audioUrl);
+                        
+                        // Enable playback and save buttons
+                        document.getElementById('playMainRecordingBtn').disabled = false;
+                        document.getElementById('saveRecordingBtn').disabled = false;
+                    });
+                    
+                    // Start recording
+                    mediaRecorder.start();
+                    isRecording = true;
+                    
+                    // Update UI
+                    document.getElementById('startMainRecordingBtn').disabled = true;
+                    document.getElementById('stopMainRecordingBtn').disabled = false;
+                })
+                .catch(error => {
+                    console.error('Error accessing microphone:', error);
+                    document.getElementById('recordingWarning').classList.remove('hidden');
+                });
+        }
+
+        // Stop recording in the main Record section
+        function stopMainRecording() {
+            if (!isRecording || !mediaRecorder) return;
+            
+            // Stop recording
+            mediaRecorder.stop();
+            isRecording = false;
+            
+            // Update UI
+            document.getElementById('startMainRecordingBtn').disabled = false;
+            document.getElementById('stopMainRecordingBtn').disabled = true;
+        }
+
+        // Play recording in the main Record section
+        function playMainRecording() {
+            if (!audioElement) return;
+            
+            // Play the recording
+            audioElement.play();
+        }
+
+        // Save recording in the main Record section
+        function saveRecording() {
+            if (!audioBlob || !currentLesson) return;
+            
+            // Create a name for the recording
+            const recordingName = `${currentLesson.title}_${new Date().toISOString().slice(0, 10)}`;
+            
+            // Add the recording to the list
+            const recordingsContainer = document.getElementById('recordingsContainer');
+            
+            // Clear "no recordings" message if present
+            if (recordingsContainer.textContent.includes('No recordings yet')) {
+                recordingsContainer.innerHTML = '';
+            }
+            
+            // Create recording item
+            const recordingItem = document.createElement('div');
+            recordingItem.className = 'flex items-center justify-between p-2 border-b';
+            
+            const recordingTitle = document.createElement('span');
+            recordingTitle.textContent = recordingName;
+            
+            const playButton = document.createElement('button');
+            playButton.className = 'px-2 py-1 bg-blue-500 text-white rounded-md text-sm';
+            playButton.textContent = 'Play';
+            playButton.onclick = () => {
+                const audio = new Audio(audioUrl);
+                audio.play();
+            };
+            
+            recordingItem.appendChild(recordingTitle);
+            recordingItem.appendChild(playButton);
+            recordingsContainer.appendChild(recordingItem);
+            
+            // Reset recording state for new recordings
+            audioChunks = [];
+            audioBlob = null;
+            audioUrl = null;
+            audioElement = null;
+            
+            // Update UI
+            document.getElementById('playMainRecordingBtn').disabled = true;
+            document.getElementById('saveRecordingBtn').disabled = true;
+        }
+
+        // Start reading aloud
+        function startReading() {
+            if (!speechSynthesisSupported || !synth || !currentLesson || !currentLesson.content) {
+                document.getElementById('speechSynthesisWarning').classList.remove('hidden');
+                return;
+            }
+            
+            // Get selected voice
+            const voiceSelect = document.getElementById('voiceSelect');
+            const voices = synth.getVoices();
+            
+            if (voices.length === 0) {
+                document.getElementById('speechSynthesisWarning').classList.remove('hidden');
+                return;
+            }
+            
+            const selectedVoice = voices[voiceSelect.value];
+            
+            if (!selectedVoice) {
+                document.getElementById('speechSynthesisWarning').classList.remove('hidden');
+                return;
+            }
+            
+            // Cancel any ongoing speech
+            synth.cancel();
+            
+            // Create new utterance
+            utterance = new SpeechSynthesisUtterance(currentLesson.content);
+            utterance.voice = selectedVoice;
+            utterance.rate = parseFloat(document.getElementById('rateRange').value);
+            
+            // Handle speech end
+            utterance.onend = () => {
+                if (isLooping) {
+                    // If looping is enabled, start again
+                    startReading();
+                } else {
+                    isPlaying = false;
+                    updateReadAloudButtons();
+                }
+            };
+            
+            // Handle speech error
+            utterance.onerror = (event) => {
+                console.error('Speech synthesis error:', event);
+                document.getElementById('speechSynthesisWarning').classList.remove('hidden');
+                isPlaying = false;
+                updateReadAloudButtons();
+            };
+            
+            // Start speaking
+            try {
+                synth.speak(utterance);
+                isPlaying = true;
+                updateReadAloudButtons();
+                document.getElementById('speechSynthesisWarning').classList.add('hidden');
+            } catch (error) {
+                console.error('Error starting speech synthesis:', error);
+                document.getElementById('speechSynthesisWarning').classList.remove('hidden');
+            }
+        }
+
+        // Pause or resume reading
+        function pauseReading() {
+            if (!speechSynthesisSupported || !synth) {
+                document.getElementById('speechSynthesisWarning').classList.remove('hidden');
+                return;
+            }
+            
+            try {
+                if (synth.speaking) {
+                    if (synth.paused) {
+                        synth.resume();
+                        isPlaying = true;
+                    } else {
+                        synth.pause();
+                        isPlaying = false;
+                    }
+                    updateReadAloudButtons();
+                }
+            } catch (error) {
+                console.error('Error pausing/resuming speech synthesis:', error);
+                document.getElementById('speechSynthesisWarning').classList.remove('hidden');
+            }
+        }
+
+        // Stop reading
+        function stopReading() {
+            if (!speechSynthesisSupported || !synth) {
+                document.getElementById('speechSynthesisWarning').classList.remove('hidden');
+                return;
+            }
+            
+            try {
+                synth.cancel();
+                isPlaying = false;
+                updateReadAloudButtons();
+            } catch (error) {
+                console.error('Error stopping speech synthesis:', error);
+                document.getElementById('speechSynthesisWarning').classList.remove('hidden');
+            }
+        }
+
+        // Toggle looping
+        function toggleLooping() {
+            isLooping = !isLooping;
+            
+            const loopButton = document.getElementById('loopReadingBtn');
+            if (isLooping) {
+                loopButton.textContent = 'Loop ON';
+                loopButton.classList.remove('btn-gray');
+                loopButton.classList.add('btn-green');
+            } else {
+                loopButton.textContent = 'Loop OFF';
+                loopButton.classList.remove('btn-green');
+                loopButton.classList.add('btn-gray');
+            }
+        }
+
+        // Update speech rate
+        function updateRate() {
+            const rate = document.getElementById('rateRange').value;
+            document.getElementById('rateValue').textContent = rate;
+            
+            // Update current utterance if speaking
+            if (utterance && synth.speaking) {
+                // We need to restart with the new rate
+                const currentText = utterance.text;
+                const currentVoice = utterance.voice;
+                
+                synth.cancel();
+                
+                utterance = new SpeechSynthesisUtterance(currentText);
+                utterance.voice = currentVoice;
+                utterance.rate = parseFloat(rate);
+                
+                // Handle speech end
+                utterance.onend = () => {
+                    if (isLooping) {
+                        // If looping is enabled, start again
+                        startReading();
+                    } else {
+                        isPlaying = false;
+                        updateReadAloudButtons();
+                    }
+                };
+                
+                synth.speak(utterance);
+            }
+        }
+
+        // Update ReadAloud buttons state
+        function updateReadAloudButtons() {
+            const startBtn = document.getElementById('startReadingBtn');
+            const pauseBtn = document.getElementById('pauseReadingBtn');
+            const stopBtn = document.getElementById('stopReadingBtn');
+            
+            if (!speechSynthesisSupported) {
+                startBtn.disabled = true;
+                pauseBtn.disabled = true;
+                stopBtn.disabled = true;
+                return;
+            }
+            
+            if (!currentLesson || !currentLesson.content) {
+                startBtn.disabled = true;
+                pauseBtn.disabled = true;
+                stopBtn.disabled = true;
+                return;
+            }
+            
+            if (isPlaying) {
+                startBtn.disabled = true;
+                pauseBtn.disabled = false;
+                pauseBtn.textContent = synth.paused ? 'Resume' : 'Pause';
+                stopBtn.disabled = false;
+            } else {
+                startBtn.disabled = false;
+                pauseBtn.disabled = true;
+                pauseBtn.textContent = 'Pause';
+                stopBtn.disabled = true;
+            }
+        }
+
+        // Show a message
+        function showMessage(elementId, message, type) {
+            const messageElement = document.getElementById(elementId);
+            
+            // Set message text
+            messageElement.textContent = message;
+            
+            // Set message type
+            messageElement.className = 'mb-6 p-4 rounded-md';
+            switch (type) {
+                case 'success':
+                    messageElement.classList.add('bg-green-100', 'text-green-700');
+                    break;
+                case 'error':
+                    messageElement.classList.add('bg-red-100', 'text-red-700');
+                    break;
+                case 'info':
+                    messageElement.classList.add('bg-blue-100', 'text-blue-700');
+                    break;
+                case 'warning':
+                    messageElement.classList.add('bg-yellow-100', 'text-yellow-700');
+                    break;
+            }
+            
+            // Show the message
+            messageElement.classList.remove('hidden');
+            
+            // Hide the message after 5 seconds for success messages
+            if (type === 'success') {
+                setTimeout(() => {
+                    messageElement.classList.add('hidden');
+                }, 5000);
+            }
+        }
+
+        // Detect language from text
+        function detectLanguage(text) {
+            // This is a very simplified language detection
+            // In a real app, you would use a more sophisticated method
+            
+            // Common words in different languages
+            const languagePatterns = {
+                'en': /\b(the|and|is|in|to|of|a|for|that|this)\b/i,
+                'es': /\b(el|la|los|las|y|en|de|que|por|con)\b/i,
+                'fr': /\b(le|la|les|et|en|de|que|pour|dans|ce)\b/i,
+                'de': /\b(der|die|das|und|in|zu|den|für|ist|von)\b/i,
+                'it': /\b(il|la|e|di|che|in|per|un|con|su)\b/i,
+                'pt': /\b(o|a|os|as|e|de|que|em|para|com)\b/i,
+                'ru': /[а-яА-Я]{3,}/,
+                'zh': /[\u4e00-\u9fff]{2,}/,
+                'ja': /[\u3040-\u309f\u30a0-\u30ff]{2,}/,
+                'ko': /[\uac00-\ud7af]{2,}/,
+                'ar': /[\u0600-\u06ff]{2,}/,
+                'hi': /[\u0900-\u097f]{2,}/
+            };
+            
+            // Check each language pattern
+            for (const [lang, pattern] of Object.entries(languagePatterns)) {
+                if (pattern.test(text)) {
+                    return lang;
+                }
+            }
+            
+            // Default to English if no pattern matches
+            return 'en';
+        }
+    </script>
+

@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function AppPage() {
+function AppPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [currentView, setCurrentView] = useState('lessons')
@@ -200,5 +200,13 @@ export default function AppPage() {
         </main>
       </div>
     </>
+  )
+}
+
+export default function AppPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AppPageContent />
+    </Suspense>
   )
 } 
