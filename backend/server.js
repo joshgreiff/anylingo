@@ -61,7 +61,17 @@ app.get('/health', (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-    res.json({ 
+
+// Debug endpoint to check environment
+app.get("/api/debug", (req, res) => {
+    res.json({
+        squareAppId: !!process.env.SQUARE_APPLICATION_ID,
+        squareLocationId: !!process.env.SQUARE_LOCATION_ID,
+        squareEnvironment: process.env.SQUARE_ENVIRONMENT,
+        nodeEnv: process.env.NODE_ENV,
+        routesLoaded: "subscription routes should be here"
+    });
+});    res.json({ 
         status: 'OK', 
         message: 'AnyLingo API is running',
         database: dbConnected ? 'Connected' : 'Disconnected',
