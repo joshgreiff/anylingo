@@ -325,7 +325,7 @@ app.post('/api/subscriptions/apply-promo', async (req, res) => {
 
 // Import and use additional subscription routes (for Square integration)
 const subscriptionRoutes = require('./src/routes/subscriptions');
-// app.use("/api/subscriptions", subscriptionRoutes); // Temporarily disabled);
+app.use("/api/subscriptions", subscriptionRoutes););
 
 // Error handling
 app.use((err, req, res, next) => {
