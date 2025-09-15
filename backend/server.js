@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(helmet());
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'https://www.anylingo.net',
+    origin: process.env.NODE_ENV === 'production' ? (process.env.FRONTEND_URL || 'https://www.anylingo.net') : true,
     credentials: true
 }));
 app.use(morgan('combined'));
@@ -325,7 +325,7 @@ app.post('/api/subscriptions/apply-promo', async (req, res) => {
 
 // Import and use additional subscription routes (for Square integration)
 const subscriptionRoutes = require('./src/routes/subscriptions');
-app.use('/api/subscriptions', subscriptionRoutes);
+// app.use("/api/subscriptions", subscriptionRoutes); // Temporarily disabled);
 
 // Error handling
 app.use((err, req, res, next) => {
