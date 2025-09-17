@@ -60,3 +60,69 @@ server.on('error', (error) => {
 });
 
 module.exports = app;
+
+// Auth endpoints
+app.post('/api/auth/register', (req, res) => {
+    const { firstName, lastName, email, password, preferences } = req.body;
+    
+    // Simple validation
+    if (!firstName || !lastName || !email || !password) {
+        return res.status(400).json({ message: 'Missing required fields' });
+    }
+    
+    // Mock user creation (in production, this would save to database)
+    const user = {
+        id: Date.now().toString(),
+        firstName,
+        lastName,
+        email,
+        preferences: preferences || { targetLanguages: ['es'] }
+    };
+    
+    // Mock JWT token
+    const token = 'mock-jwt-token-' + Date.now();
+    
+    res.json({
+        message: 'User created successfully',
+        token,
+        user
+    });
+});
+
+app.post('/api/auth/login', (req, res) => {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+        return res.status(400).json({ message: 'Email and password required' });
+    }
+    
+    // Mock user login
+    const user = {
+        id: '1',
+        firstName: 'Test',
+        lastName: 'User',
+        email,
+        preferences: { targetLanguages: ['es'] }
+    };
+    
+    const token = 'mock-jwt-token-' + Date.now();
+    
+    res.json({
+        message: 'Login successful',
+        token,
+        user
+    });
+});
+
+app.get('/api/auth/me', (req, res) => {
+    // Mock authenticated user
+    const user = {
+        id: '1',
+        firstName: 'Test',
+        lastName: 'User',
+        email: 'test@example.com',
+        preferences: { targetLanguages: ['es'] }
+    };
+    
+    res.json({ user });
+});
