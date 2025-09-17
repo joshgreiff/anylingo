@@ -64,7 +64,7 @@ app.get('/api/health', (req, res) => {
 
 // Debug endpoint to check environment
 app.get("/api/debug", (req, res) => {
-    res.json({
+    res.json({ 
         squareAppId: !!process.env.SQUARE_APPLICATION_ID,
         squareLocationId: !!process.env.SQUARE_LOCATION_ID,
         squareEnvironment: process.env.SQUARE_ENVIRONMENT,
@@ -325,7 +325,7 @@ app.post('/api/subscriptions/apply-promo', async (req, res) => {
 
 // Import and use additional subscription routes (for Square integration)
 const subscriptionRoutes = require('./src/routes/subscriptions');
-app.use("/api/subscriptions", subscriptionRoutes););
+app.use("/api/subscriptions", subscriptionRoutes);
 
 // Error handling
 app.use((err, req, res, next) => {
