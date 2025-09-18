@@ -168,6 +168,12 @@ export default function PaymentPage() {
         const payments = (window as any).Square.payments(applicationId, locationId)
         setSquarePayments(payments)
         
+        // Check if card container exists
+        const cardContainer = document.getElementById('card-container')
+        if (!cardContainer) {
+          throw new Error('Card container element not found')
+        }
+
         const cardElement = await payments.card({
           style: {
             input: {
@@ -186,6 +192,7 @@ export default function PaymentPage() {
         await cardElement.attach('#card-container')
         setCard(cardElement)
         console.log('Square card element attached successfully')
+        console.log('Card element tokenize method:', typeof cardElement.tokenize)
       } catch (error) {
         console.error('Failed to initialize Square:', error)
         setError('Payment system initialization failed. Please refresh and try again.')
@@ -227,16 +234,29 @@ export default function PaymentPage() {
   }
 
   const handleStartTrialWithPayment = async () => {
-    if (!selectedPlan || !card || !squarePayments) {
-      setError('Please enter your payment information.')
+    if (!selectedPlan) {
+      setError('Please select a plan.')
       return
     }
+
+    if (!card) {
+      setError('Payment form is not ready. Please wait for the form to load completely.')
+      return
+    }
+
+    if (!squarePayments) {
+      setError('Payment system is not initialized. Please refresh the page.')
+      return
+    }
+
+    console.log('Payment submission - card object:', card)
+    console.log('Payment submission - card.tokenize type:', typeof card.tokenize)
 
     setIsLoading(true)
     setError('')
 
     try {
-      const tokenResult = await squarePayments.tokenize()
+      const tokenResult = await card.tokenize()
       
       if (tokenResult.status === 'OK') {
         const token = localStorage.getItem('anylingo_token')
