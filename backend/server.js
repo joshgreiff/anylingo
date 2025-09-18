@@ -48,6 +48,7 @@ app.get('/api/subscriptions/square-config', (req, res) => {
 // Start server
 const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ AnyLingo API server running on port ${PORT}`);
+console.log('🔧 Server updated with SQUARE_ENVIORNMENT fix');
     console.log(`🔗 Health check: http://0.0.0.0:${PORT}/`);
     console.log(`🌐 Server is ready for Railway health checks`);
 });
