@@ -261,6 +261,14 @@ export default function PaymentPage() {
       if (tokenResult.status === 'OK') {
         let token = localStorage.getItem('anylingo_token')
         
+        // Clear invalid mock tokens from previous testing
+        if (token && token.startsWith('mock-jwt-token-')) {
+          console.log('Clearing invalid mock token')
+          localStorage.removeItem('anylingo_token')
+          localStorage.removeItem('anylingo_user_data')
+          token = null
+        }
+        
         // If no token, create account first (new payment-first flow)
         if (!token) {
           console.log('No existing token, creating account first...')
