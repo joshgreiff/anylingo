@@ -108,6 +108,27 @@ export default function PaymentPage() {
     }
   }
 
+  const loadSquareSDKManually = () => {
+    if (!squareConfig) return
+    
+    const script = document.createElement('script')
+    script.src = squareConfig.environment === 'production' 
+      ? "https://web.squarecdn.com/v1/square.js" 
+      : "https://sandbox.web.squarecdn.com/v1/square.js"
+    
+    script.onload = () => {
+      console.log('Square SDK loaded manually')
+      setTimeout(initializeSquare, 100)
+    }
+    
+    script.onerror = () => {
+      console.error('Manual Square SDK loading also failed')
+      setError('Unable to load payment system. Please check your internet connection and try again.')
+    }
+    
+    document.head.appendChild(script)
+  }
+
   const fetchSquareConfig = async () => {
     try {
       const response = await fetch(`${API_URL}/api/subscriptions/square-config`)
@@ -135,6 +156,8 @@ export default function PaymentPage() {
           return
         }
         
+        console.log('Initializing Square with:', { applicationId, locationId, environment: squareConfig.environment })
+        
         const payments = (window as any).Square.payments(applicationId, locationId)
         setSquarePayments(payments)
         
@@ -152,12 +175,19 @@ export default function PaymentPage() {
         })
         await cardElement.attach('#card-container')
         setCard(cardElement)
+        console.log('Square card element attached successfully')
       } catch (error) {
         console.error('Failed to initialize Square:', error)
         setError('Payment system initialization failed. Please refresh and try again.')
       }
     } else {
-      setError('Square payment system is loading. Please wait a moment and try again.')
+      const missingParts = []
+      if (typeof window === 'undefined') missingParts.push('window')
+      if (!(window as any).Square) missingParts.push('Square SDK')
+      if (!squareConfig) missingParts.push('Square config')
+      
+      console.log('Square initialization failed. Missing:', missingParts)
+      setError(`Payment system is loading (missing: ${missingParts.join(', ')}). Please wait a moment and try again.`)
     }
   }
 
@@ -167,6 +197,16 @@ export default function PaymentPage() {
       setTimeout(() => {
         initializeSquare()
       }, 100)
+      
+      // Fallback timeout - if Square doesn't load in 10 seconds, try manual loading
+      const fallbackTimeout = setTimeout(() => {
+        if (!(window as any).Square) {
+          console.log('Square SDK timeout - attempting manual load')
+          loadSquareSDKManually()
+        }
+      }, 10000)
+      
+      return () => clearTimeout(fallbackTimeout)
     }
   }, [squareConfig, showPaymentForm])
 
@@ -244,9 +284,18 @@ export default function PaymentPage() {
       {squareConfig && <Script 
         src={squareConfig.environment === 'production' 
           ? "https://web.squarecdn.com/v1/square.js" 
-          : "https://sandbox-web.squarecdn.com/v1/square.js"
+          : "https://sandbox.web.squarecdn.com/v1/square.js"
         } 
-        onLoad={() => console.log('Square SDK loaded')}
+        onLoad={() => {
+          console.log('Square SDK loaded successfully')
+          console.log('Environment:', squareConfig.environment)
+          console.log('Square object available:', typeof (window as any).Square)
+        }}
+        onError={(error) => {
+          console.error('Failed to load Square SDK:', error)
+          console.log('Attempting to load Square SDK manually...')
+          loadSquareSDKManually()
+        }}
       />}
       
       <div className="min-h-screen bg-gray-50">

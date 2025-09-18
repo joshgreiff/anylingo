@@ -1,0 +1,21 @@
+{
+  "name": "AnyLingo - Revolutionary Language Learning",
+  "short_name": "AnyLingo",
+  "description": "Transform your language learning journey with AI-driven subconscious training.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "32x32",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+} 
