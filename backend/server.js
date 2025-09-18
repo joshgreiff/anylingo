@@ -46,6 +46,18 @@ app.get('/api/health', (req, res) => {
     });
 });
 
+// Debug endpoint to check environment and database
+app.get('/api/debug', (req, res) => {
+    const mongoose = require('mongoose');
+    res.json({
+        jwt_secret: process.env.JWT_SECRET ? 'Present' : 'Missing',
+        mongodb_uri: process.env.MONGODB_URI ? 'Present' : 'Missing',
+        database_status: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
+        database_state: mongoose.connection.readyState,
+        node_env: process.env.NODE_ENV
+    });
+});
+
 // Mount routes
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/auth', authRoutes);
@@ -96,7 +108,7 @@ app.post('/api/auth/register-temp', async (req, res) => {
 // Start server
 const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ AnyLingo API server running on port ${PORT}`);
-console.log('🔧 Server updated with SQUARE_ENVIORNMENT fix');
+console.log('🔧 Server updated with JWT_SECRET and real auth system');
     console.log(`🔗 Health check: http://0.0.0.0:${PORT}/`);
     console.log(`🌐 Server is ready for Railway health checks`);
 });
