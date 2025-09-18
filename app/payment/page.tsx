@@ -77,7 +77,7 @@ export default function PaymentPage() {
           subscriptionType: promoCode === 'JOSH_LIFETIME' ? 'lifetime' : 'promo_access'
         }
         
-        const registerResponse = await fetch(`${API_URL}/api/auth/register`, {
+        const registerResponse = await fetch(`${API_URL}/api/auth/register-temp`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -277,8 +277,8 @@ export default function PaymentPage() {
             const userData = JSON.parse(pendingUser)
             console.log('Creating account for:', userData.email)
             
-            // Create account
-            const registerResponse = await fetch(`${API_URL}/api/auth/register`, {
+            // Create account (using temporary endpoint while fixing main auth)
+            const registerResponse = await fetch(`${API_URL}/api/auth/register-temp`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

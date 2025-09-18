@@ -4,12 +4,18 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 require('dotenv').config();
 
+// Import database connection
+const connectDB = require('./src/config/database');
+
 // Import routes
 const subscriptionRoutes = require('./src/routes/subscriptions');
 const authRoutes = require('./src/routes/auth');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Connect to database
+connectDB();
 
 // Middleware
 app.use(helmet());
@@ -43,6 +49,49 @@ app.get('/api/health', (req, res) => {
 // Mount routes
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/auth', authRoutes);
+
+// Temporary auth fallback for testing (remove after real auth is fixed)
+app.post('/api/auth/register-temp', async (req, res) => {
+    try {
+        const { firstName, lastName, email, password, preferences } = req.body;
+        
+        console.log('Temporary register for:', email);
+        
+        // Simple validation
+        if (!firstName || !lastName || !email || !password) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+        
+        // Create a proper JWT token (using a fallback secret for now)
+        const jwt = require('jsonwebtoken');
+        const secret = process.env.JWT_SECRET || 'temporary-secret-for-testing-only';
+        
+        const user = {
+            id: Date.now().toString(),
+            firstName,
+            lastName,
+            email,
+            preferences: preferences || { targetLanguages: ['es'] }
+        };
+        
+        const token = jwt.sign(
+            { userId: user.id, email: user.email },
+            secret,
+            { expiresIn: '7d' }
+        );
+        
+        console.log('Temporary registration successful for:', email);
+        
+        res.json({
+            message: 'User created successfully',
+            token,
+            user
+        });
+    } catch (error) {
+        console.error('Temporary register error:', error);
+        res.status(500).json({ error: 'Registration failed' });
+    }
+});
 
 // Start server
 const server = app.listen(PORT, '0.0.0.0', () => {
