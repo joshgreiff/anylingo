@@ -259,7 +259,47 @@ export default function PaymentPage() {
       const tokenResult = await card.tokenize()
       
       if (tokenResult.status === 'OK') {
-        const token = localStorage.getItem('anylingo_token')
+        let token = localStorage.getItem('anylingo_token')
+        
+        // If no token, create account first (new payment-first flow)
+        if (!token) {
+          const pendingUser = localStorage.getItem('anylingo_pending_user')
+          if (pendingUser) {
+            const userData = JSON.parse(pendingUser)
+            
+            // Create account
+            const registerResponse = await fetch(`${API_URL}/api/auth/register`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(userData)
+            })
+
+            const registerData = await registerResponse.json()
+
+            if (!registerResponse.ok) {
+              setError(registerData.message || 'Failed to create account. Please try again.')
+              return
+            }
+
+            // Store auth token and user data
+            token = registerData.token
+            localStorage.setItem('anylingo_token', registerData.token)
+            localStorage.setItem('anylingo_user_data', JSON.stringify(registerData.user))
+            localStorage.removeItem('anylingo_pending_user')
+          } else {
+            setError('Session expired. Please sign up again.')
+            router.push('/signup')
+            return
+          }
+        }
+
+        // Ensure token is available
+        if (!token) {
+          setError('Authentication failed. Please try again.')
+          return
+        }
         
         const response = await fetch(`${API_URL}/api/subscriptions/create-trial`, {
           method: 'POST',
