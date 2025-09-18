@@ -4,6 +4,9 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 require('dotenv').config();
 
+// Import routes
+const subscriptionRoutes = require('./src/routes/subscriptions');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -36,14 +39,8 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Square config endpoint
-app.get('/api/subscriptions/square-config', (req, res) => {
-    res.json({
-        applicationId: process.env.SQUARE_APPLICATION_ID || 'sandbox-sq0idb-PLACEHOLDER',
-        locationId: process.env.SQUARE_LOCATION_ID || 'PLACEHOLDER',
-        environment: process.env.SQUARE_ENVIRONMENT || 'sandbox'
-    });
-});
+// Mount subscription routes
+app.use('/api/subscriptions', subscriptionRoutes);
 
 // Start server
 const server = app.listen(PORT, '0.0.0.0', () => {
