@@ -8,15 +8,26 @@ const router = express.Router();
 // Register new user
 router.post('/register', async (req, res) => {
     try {
+        console.log('Register request received for:', req.body.email);
+        
+        // Check for required environment variables
+        if (!process.env.JWT_SECRET) {
+            console.error('JWT_SECRET environment variable is missing');
+            return res.status(500).json({ error: 'Server configuration error' });
+        }
+        
         const { email, password, firstName, lastName } = req.body;
 
         // Check if user already exists
+        console.log('Checking if user exists:', email);
         const existingUser = await User.findOne({ email });
         if (existingUser) {
+            console.log('User already exists:', email);
             return res.status(400).json({ error: 'User already exists with this email' });
         }
 
         // Create new user
+        console.log('Creating new user:', email);
         const user = new User({
             email,
             password,
@@ -24,7 +35,9 @@ router.post('/register', async (req, res) => {
             lastName
         });
 
+        console.log('Saving user to database...');
         await user.save();
+        console.log('User saved successfully:', email);
 
         // Create default lessons for new user
         try {
