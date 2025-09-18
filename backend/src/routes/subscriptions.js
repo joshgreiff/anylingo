@@ -8,11 +8,19 @@ const router = express.Router();
 // Get Square configuration for frontend
 router.get('/square-config', (req, res) => {
     try {
+        const environment = process.env.SQUARE_ENVIORNMENT || process.env.SQUARE_ENVIRONMENT || 'sandbox';
+        
+        // Debug logging
+        console.log('Square Config Debug:');
+        console.log('SQUARE_ENVIORNMENT:', process.env.SQUARE_ENVIORNMENT);
+        console.log('SQUARE_ENVIRONMENT:', process.env.SQUARE_ENVIRONMENT);
+        console.log('Final environment:', environment);
+        
         // Return only the public Square configuration needed for Web Payments SDK
         res.json({
             applicationId: process.env.SQUARE_APPLICATION_ID || "sandbox-sq0idb-PLACEHOLDER",
             locationId: process.env.SQUARE_LOCATION_ID,
-            environment: process.env.SQUARE_ENVIORNMENT || process.env.SQUARE_ENVIRONMENT || 'sandbox'
+            environment: environment
         });
     } catch (error) {
         console.error('Error getting Square config:', error);
