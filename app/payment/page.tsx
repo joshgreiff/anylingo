@@ -31,9 +31,15 @@ export default function PaymentPage() {
       
       // Check for promo code bypass
       if (userData.promoCode && userData.promoCode.trim()) {
-        // Create account directly and redirect to app
-        createAccountWithPromoCode(userData)
-        return
+        const promoCode = userData.promoCode.trim().toUpperCase()
+        if (isValidPromoCode(promoCode)) {
+          // Create account with promo code benefits
+          createAccountWithPromoCode(userData, promoCode)
+          return
+        } else {
+          // Invalid promo code, show error and continue to payment
+          setError(`Invalid promo code: "${userData.promoCode}". Proceeding to payment.`)
+        }
       }
     } else if (token) {
       // Old flow: user already has account
@@ -51,17 +57,33 @@ export default function PaymentPage() {
     fetchSquareConfig()
   }, [router])
 
-  const createAccountWithPromoCode = async (userData: any) => {
+  const isValidPromoCode = (code: string): boolean => {
+    const validCodes = [
+      'JOSH_LIFETIME',     // Your lifetime access code
+      'FOUNDER_ACCESS',    // Alternative founder code
+      'TESTING2025',       // Testing code
+      'DEV_BYPASS'         // Developer bypass
+    ]
+    return validCodes.includes(code)
+  }
+
+  const createAccountWithPromoCode = async (userData: any, promoCode?: string) => {
     setIsLoading(true)
     try {
-      // Create account directly without payment
-      const registerResponse = await fetch(`${API_URL}/api/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData)
-      })
+              // Create account with promo code benefits
+        const accountData = {
+          ...userData,
+          promoCodeUsed: promoCode,
+          subscriptionType: promoCode === 'JOSH_LIFETIME' ? 'lifetime' : 'promo_access'
+        }
+        
+        const registerResponse = await fetch(`${API_URL}/api/auth/register`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(accountData)
+        })
 
       const registerData = await registerResponse.json()
 
@@ -219,10 +241,13 @@ export default function PaymentPage() {
 
   return (
     <>
-      <Script 
-        src="https://sandbox-web.squarecdn.com/v1/square.js" 
+      {squareConfig && <Script 
+        src={squareConfig.environment === 'production' 
+          ? "https://web.squarecdn.com/v1/square.js" 
+          : "https://sandbox-web.squarecdn.com/v1/square.js"
+        } 
         onLoad={() => console.log('Square SDK loaded')}
-      />
+      />}
       
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
