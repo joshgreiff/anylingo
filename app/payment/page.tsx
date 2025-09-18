@@ -134,6 +134,13 @@ export default function PaymentPage() {
       const response = await fetch(`${API_URL}/api/subscriptions/square-config`)
       if (response.ok) {
         const config = await response.json()
+        
+        // TEMPORARY FIX: If we have a production app ID, force production environment
+        if (config.applicationId && config.applicationId.startsWith('sq0idp-')) {
+          console.log('Detected production app ID, forcing production environment')
+          config.environment = 'production'
+        }
+        
         setSquareConfig(config)
       } else {
         console.error('Failed to fetch Square config')
