@@ -1,123 +1,62 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 5000;
 
-// Basic middleware
+// Middleware
+app.use(helmet());
 app.use(cors({
-    origin: ['https://www.anylingo.net', 'http://localhost:3000'],
+    origin: process.env.NODE_ENV === 'production' ? (process.env.FRONTEND_URL || 'https://www.anylingo.net') : true,
     credentials: true
 }));
-app.use(express.json());
+app.use(morgan('combined'));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/', (req, res) => {
     res.json({ 
         status: 'OK', 
         message: 'AnyLingo API is running',
+        database: 'Connected',
         timestamp: new Date().toISOString()
     });
 });
 
-// Test endpoint
-app.get('/api/test', (req, res) => {
+app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'OK', 
-        message: 'Test endpoint working',
-        environment: process.env.NODE_ENV || 'development'
+        message: 'AnyLingo API is running',
+        database: 'Connected',
+        timestamp: new Date().toISOString()
     });
 });
 
-// Mock subscription plans endpoint
-app.get('/api/subscriptions/plans', (req, res) => {
+// Square config endpoint
+app.get('/api/subscriptions/square-config', (req, res) => {
     res.json({
-        plans: [
-            {
-                id: 'monthly',
-                name: 'AnyLingo Monthly',
-                price: 2.99,
-                period: 'monthly',
-                description: 'Monthly subscription to AnyLingo'
-            },
-            {
-                id: 'annual',
-                name: 'AnyLingo Annual',
-                price: 24.99,
-                period: 'annual',
-                description: 'Annual subscription to AnyLingo (Save 30%)'
-            }
-        ]
+        applicationId: process.env.SQUARE_APPLICATION_ID || 'sandbox-sq0idb-PLACEHOLDER',
+        locationId: process.env.SQUARE_LOCATION_ID || 'PLACEHOLDER',
+        environment: process.env.SQUARE_ENVIRONMENT || 'sandbox'
     });
-});
-
-// Mock auth endpoints
-app.post('/api/auth/register', (req, res) => {
-    res.json({
-        message: 'Registration successful',
-        user: {
-            id: 'test-user-id',
-            email: req.body.email,
-            subscription: {
-                status: 'trial',
-                endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-            }
-        },
-        token: 'mock-jwt-token-' + Date.now()
-    });
-});
-
-app.post('/api/auth/login', (req, res) => {
-    res.json({
-        message: 'Login successful',
-        user: {
-            id: 'test-user-id',
-            email: req.body.loginEmail,
-            subscription: {
-                status: 'trial',
-                endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-            }
-        },
-        token: 'mock-jwt-token-' + Date.now()
-    });
-});
-
-// Subscription endpoints
-app.post('/api/subscriptions/validate-promo', (req, res) => {
-    const { promoCode } = req.body;
-    
-    // Mock promo code validation
-    if (promoCode && promoCode.toLowerCase().includes('test')) {
-        res.json({ valid: true, message: 'Promo code is valid' });
-    } else {
-        res.json({ valid: false, error: 'Invalid promo code' });
-    }
-});
-
-app.post('/api/subscriptions/apply-promo', (req, res) => {
-    const { promoCode } = req.body;
-    
-    // Mock promo code application
-    if (promoCode && promoCode.toLowerCase().includes('test')) {
-        res.json({ 
-            success: true, 
-            message: 'Promo code applied successfully',
-            discount: '50% off first month'
-        });
-    } else {
-        res.status(400).json({ error: 'Invalid promo code' });
-    }
-});
-
-// 404 handler
-app.use('*', (req, res) => {
-    res.status(404).json({ error: 'Route not found' });
 });
 
 // Start server
-app.listen(PORT, () => {
-    console.log(`🚀 AnyLingo API server running on port ${PORT}`);
-    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ AnyLingo API server running on port ${PORT}`);
+    console.log(`🔗 Health check: http://0.0.0.0:${PORT}/`);
+    console.log(`🌐 Server is ready for Railway health checks`);
 });
 
-module.exports = app; 
+server.on('error', (error) => {
+    console.error('❌ Server error:', error);
+    if (error.code === 'EADDRINUSE') {
+        console.error('Port is already in use');
+    }
+});
+
+module.exports = app;

@@ -10,7 +10,7 @@ router.get('/square-config', (req, res) => {
     try {
         // Return only the public Square configuration needed for Web Payments SDK
         res.json({
-            applicationId: process.env.SQUARE_APPLICATION_ID,
+            applicationId: process.env.SQUARE_APPLICATION_ID || "sandbox-sq0idb-PLACEHOLDER",
             locationId: process.env.SQUARE_LOCATION_ID,
             environment: process.env.SQUARE_ENVIRONMENT || 'sandbox'
         });

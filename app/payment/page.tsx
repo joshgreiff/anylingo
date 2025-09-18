@@ -18,20 +18,73 @@ export default function PaymentPage() {
   const [squareConfig, setSquareConfig] = useState<any>(null)
 
   useEffect(() => {
+    // Check for pending user (new flow) or existing token (old flow)
+    const pendingUser = localStorage.getItem('anylingo_pending_user')
     const token = localStorage.getItem('anylingo_token')
-    if (!token) {
-      router.push('/signup?mode=login')
+    
+    if (pendingUser) {
+      // New flow: user came from signup
+      const userData = JSON.parse(pendingUser)
+      if (userData.email) {
+        setUserEmail(userData.email)
+      }
+      
+      // Check for promo code bypass
+      if (userData.promoCode && userData.promoCode.trim()) {
+        // Create account directly and redirect to app
+        createAccountWithPromoCode(userData)
+        return
+      }
+    } else if (token) {
+      // Old flow: user already has account
+      const userData = JSON.parse(localStorage.getItem('anylingo_user_data') || '{}')
+      if (userData.email) {
+        setUserEmail(userData.email)
+      }
+    } else {
+      // No pending user or token, redirect to signup
+      router.push('/signup')
       return
-    }
-
-    const userData = JSON.parse(localStorage.getItem('anylingo_user_data') || '{}')
-    if (userData.email) {
-      setUserEmail(userData.email)
     }
 
     // Fetch Square configuration from backend
     fetchSquareConfig()
   }, [router])
+
+  const createAccountWithPromoCode = async (userData: any) => {
+    setIsLoading(true)
+    try {
+      // Create account directly without payment
+      const registerResponse = await fetch(`${API_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData)
+      })
+
+      const registerData = await registerResponse.json()
+
+      if (registerResponse.ok) {
+        // Store auth token
+        localStorage.setItem('anylingo_token', registerData.token)
+        localStorage.setItem('anylingo_user_data', JSON.stringify(registerData.user))
+        
+        // Clear pending user data
+        localStorage.removeItem('anylingo_pending_user')
+        
+        // Redirect to app
+        router.push('/app')
+      } else {
+        setError(registerData.message || 'Failed to create account. Please try again.')
+        setIsLoading(false)
+      }
+    } catch (error) {
+      console.error('Error creating account with promo code:', error)
+      setError('An error occurred. Please try again.')
+      setIsLoading(false)
+    }
+  }
 
   const fetchSquareConfig = async () => {
     try {
