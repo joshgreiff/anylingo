@@ -12,7 +12,7 @@ router.get('/square-config', (req, res) => {
         res.json({
             applicationId: process.env.SQUARE_APPLICATION_ID || "sandbox-sq0idb-PLACEHOLDER",
             locationId: process.env.SQUARE_LOCATION_ID,
-            environment: process.env.SQUARE_ENVIRONMENT || 'sandbox'
+            environment: process.env.SQUARE_ENVIORNMENT || process.env.SQUARE_ENVIRONMENT || 'sandbox'
         });
     } catch (error) {
         console.error('Error getting Square config:', error);
