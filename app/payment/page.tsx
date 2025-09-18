@@ -263,9 +263,11 @@ export default function PaymentPage() {
         
         // If no token, create account first (new payment-first flow)
         if (!token) {
+          console.log('No existing token, creating account first...')
           const pendingUser = localStorage.getItem('anylingo_pending_user')
           if (pendingUser) {
             const userData = JSON.parse(pendingUser)
+            console.log('Creating account for:', userData.email)
             
             // Create account
             const registerResponse = await fetch(`${API_URL}/api/auth/register`, {
@@ -277,6 +279,8 @@ export default function PaymentPage() {
             })
 
             const registerData = await registerResponse.json()
+            console.log('Register response status:', registerResponse.status)
+            console.log('Register response data:', registerData)
 
             if (!registerResponse.ok) {
               setError(registerData.message || 'Failed to create account. Please try again.')
@@ -285,6 +289,7 @@ export default function PaymentPage() {
 
             // Store auth token and user data
             token = registerData.token
+            console.log('New token received:', token ? 'Token exists' : 'No token')
             localStorage.setItem('anylingo_token', registerData.token)
             localStorage.setItem('anylingo_user_data', JSON.stringify(registerData.user))
             localStorage.removeItem('anylingo_pending_user')
@@ -293,6 +298,8 @@ export default function PaymentPage() {
             router.push('/signup')
             return
           }
+        } else {
+          console.log('Using existing token for trial creation')
         }
 
         // Ensure token is available
@@ -300,6 +307,9 @@ export default function PaymentPage() {
           setError('Authentication failed. Please try again.')
           return
         }
+
+        console.log('Starting trial with token:', token.substring(0, 20) + '...')
+        console.log('Trial request data:', { planType: selectedPlan, cardToken: tokenResult.token.substring(0, 20) + '...', trialDays: 7 })
         
         const response = await fetch(`${API_URL}/api/subscriptions/create-trial`, {
           method: 'POST',
@@ -314,7 +324,9 @@ export default function PaymentPage() {
           })
         })
 
+        console.log('Trial response status:', response.status)
         const data = await response.json()
+        console.log('Trial response data:', data)
 
         if (response.ok) {
           localStorage.setItem('anylingo_trial_info', JSON.stringify({
