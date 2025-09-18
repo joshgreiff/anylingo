@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import AccountManagement from '../components/AccountManagement'
 
 function AppPageContent() {
   const router = useRouter()
@@ -119,6 +120,7 @@ function AppPageContent() {
                 { key: 'readaloud', label: 'Read Aloud', icon: '🔊' },
                 { key: 'drills', label: 'Training Drills', icon: '🎯' },
                 { key: 'recording', label: 'Recording', icon: '🎤' },
+                { key: 'account', label: 'Account', icon: '👤' },
                 { key: 'settings', label: 'Settings', icon: '⚙️' }
               ].map((tab) => (
                 <button
@@ -187,6 +189,11 @@ function AppPageContent() {
                 <h2 className="text-2xl font-bold mb-4">Recording</h2>
                 {/* Recording content will be populated by script.js */}
               </div>
+            </div>
+
+            {/* Account View */}
+            <div id="accountSection" className={currentView === 'account' ? 'block' : 'hidden'}>
+              <AccountManagement />
             </div>
 
             {/* Settings View */}

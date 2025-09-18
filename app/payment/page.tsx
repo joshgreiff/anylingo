@@ -172,11 +172,14 @@ export default function PaymentPage() {
           style: {
             input: {
               fontSize: '16px',
-              fontFamily: 'system-ui, sans-serif',
-              color: '#374151',
-              '::placeholder': {
-                color: '#9CA3AF'
-              }
+              fontFamily: 'Arial',
+              color: '#374151'
+            },
+            '.input-container.is-focus': {
+              borderColor: '#3b82f6'
+            },
+            '.message-text': {
+              color: '#ef4444'
             }
           }
         })
