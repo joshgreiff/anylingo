@@ -187,10 +187,6 @@ export default function PaymentPage() {
             '.message-text': {
               color: '#ef4444'
             }
-          },
-          // Increase timeout for 3D Secure authentication
-          threeDSecure: {
-            timeout: 30000 // 30 seconds instead of default
           }
         })
         await cardElement.attach('#card-container')
