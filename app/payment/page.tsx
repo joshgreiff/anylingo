@@ -261,11 +261,13 @@ export default function PaymentPage() {
       if (tokenResult.status === 'OK') {
         let token = localStorage.getItem('anylingo_token')
         
-        // Clear invalid mock tokens from previous testing
-        if (token && token.startsWith('mock-jwt-token-')) {
-          console.log('Clearing invalid mock token')
+        // Clear ALL existing tokens to force fresh account creation
+        // This ensures we don't use stale/invalid tokens from previous sessions
+        if (token) {
+          console.log('Clearing existing token to force fresh account creation:', token.substring(0, 30) + '...')
           localStorage.removeItem('anylingo_token')
           localStorage.removeItem('anylingo_user_data')
+          localStorage.removeItem('anylingo_trial_info')
           token = null
         }
         
