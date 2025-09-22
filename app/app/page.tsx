@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Script from 'next/script'
 import AccountManagement from '../components/AccountManagement'
 
 function AppPageContent() {
@@ -45,7 +46,10 @@ function AppPageContent() {
     <>
       {/* Load external stylesheets */}
       <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-      <link href="/styles.css" rel="stylesheet" />
+      <link href="/app-styles.css" rel="stylesheet" />
+      
+      {/* Load original app JavaScript */}
+      <Script src="/script.js" strategy="afterInteractive" />
       
       <div className="bg-gray-50 min-h-screen">
         {/* Header */}
