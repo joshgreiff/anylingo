@@ -11,6 +11,17 @@ class SquareService {
                 ? SquareEnvironment.Production 
                 : SquareEnvironment.Sandbox
         });
+        
+        console.log('Square client created');
+        console.log('Client type:', typeof this.client);
+        console.log('Client keys:', Object.keys(this.client));
+        console.log('Client prototype methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.client)));
+        console.log('customers available:', !!this.client.customers);
+        
+        if (this.client.customers) {
+            console.log('customers type:', typeof this.client.customers);
+            console.log('customers methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.client.customers)));
+        }
     }
 
     // Create a customer
