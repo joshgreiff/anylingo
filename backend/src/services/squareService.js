@@ -17,6 +17,16 @@ class SquareService {
     // Create a customer
     async createCustomer(user) {
         try {
+            console.log('Creating customer with data:', {
+                givenName: user.firstName,
+                familyName: user.lastName,
+                emailAddress: user.email,
+                note: `AnyLingo user: ${user._id}`
+            });
+            console.log('Square client environment:', this.client._options?.environment);
+            console.log('Square client access token present:', !!this.client._options?.accessToken);
+            console.log('Square client access token starts with:', this.client._options?.accessToken?.substring(0, 10) + '...');
+
             const response = await this.client.customers.create({
                 givenName: user.firstName,
                 familyName: user.lastName,
@@ -24,6 +34,7 @@ class SquareService {
                 note: `AnyLingo user: ${user._id}`
             });
 
+            console.log('Customer created successfully:', response.result.customer.id);
             return response.result.customer;
         } catch (error) {
             console.error('Error creating Square customer:', error);
