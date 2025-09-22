@@ -13,7 +13,8 @@ class SquareService {
     // Create a customer
     async createCustomer(user) {
         try {
-            const response = await this.client.customers.createCustomer({
+            const { customersApi } = this.client;
+            const response = await customersApi.createCustomer({
                 givenName: user.firstName,
                 familyName: user.lastName,
                 emailAddress: user.email,
@@ -23,6 +24,7 @@ class SquareService {
             return response.result.customer;
         } catch (error) {
             console.error('Error creating Square customer:', error);
+            console.error('Square API error details:', error.errors);
             throw new Error('Failed to create customer');
         }
     }
@@ -142,10 +144,12 @@ class SquareService {
     // Get customer details
     async getCustomer(customerId) {
         try {
-            const response = await this.client.customers.retrieveCustomer(customerId);
+            const { customersApi } = this.client;
+            const response = await customersApi.retrieveCustomer(customerId);
             return response.result.customer;
         } catch (error) {
             console.error('Error retrieving Square customer:', error);
+            console.error('Square API error details:', error.errors);
             throw new Error('Failed to retrieve customer');
         }
     }
@@ -164,7 +168,8 @@ class SquareService {
     // Create a card for a customer
     async createCard(customerId, cardToken) {
         try {
-            const response = await this.client.cards.createCard({
+            const { cardsApi } = this.client;
+            const response = await cardsApi.createCard({
                 card: {
                     customerId: customerId,
                     sourceId: cardToken
@@ -174,6 +179,7 @@ class SquareService {
             return response.result.card;
         } catch (error) {
             console.error('Error creating Square card:', error);
+            console.error('Square API error details:', error.errors);
             throw new Error('Failed to create card');
         }
     }
