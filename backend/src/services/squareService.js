@@ -14,7 +14,7 @@ class SquareService {
         });
     }
 
-    // Create a customer
+    // Create a customer using direct HTTP request (bypassing Square SDK)
     async createCustomer(user) {
         try {
             console.log('Creating customer with data:', {
@@ -23,22 +23,36 @@ class SquareService {
                 emailAddress: user.email,
                 note: `AnyLingo user: ${user._id}`
             });
-            console.log('Square client environment:', this.client._options?.environment);
-            console.log('Square client access token present:', !!this.client._options?.accessToken);
-            console.log('Square client access token starts with:', this.client._options?.accessToken?.substring(0, 10) + '...');
 
-            const response = await this.client.customers.create({
-                givenName: user.firstName,
-                familyName: user.lastName,
-                emailAddress: user.email,
+            const customerData = {
+                given_name: user.firstName,
+                family_name: user.lastName,
+                email_address: user.email,
                 note: `AnyLingo user: ${user._id}`
+            };
+
+            console.log('Making direct HTTP request to Square API...');
+            const response = await fetch('https://connect.squareup.com/v2/customers', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(customerData)
             });
 
-            console.log('Customer created successfully:', response.result.customer.id);
-            return response.result.customer;
+            const responseData = await response.json();
+            console.log('Square API response status:', response.status);
+            console.log('Square API response data:', responseData);
+
+            if (!response.ok) {
+                throw new Error(`Square API error: ${JSON.stringify(responseData)}`);
+            }
+
+            console.log('Customer created successfully:', responseData.customer.id);
+            return responseData.customer;
         } catch (error) {
             console.error('Error creating Square customer:', error);
-            console.error('Square API error details:', error.errors);
             throw new Error('Failed to create customer');
         }
     }
