@@ -4,7 +4,7 @@ class SquareService {
     constructor() {
         console.log('Initializing Square client with environment:', process.env.SQUARE_ENVIRONMENT);
         console.log('Square access token present:', !!process.env.SQUARE_ACCESS_TOKEN);
-        // Trigger redeploy to refresh environment variables
+        console.log('DEBUGGING: Force Railway redeploy with new debugging code');
         
         this.client = new SquareClient({
             accessToken: process.env.SQUARE_ACCESS_TOKEN,
