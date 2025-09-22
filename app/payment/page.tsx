@@ -187,6 +187,10 @@ export default function PaymentPage() {
             '.message-text': {
               color: '#ef4444'
             }
+          },
+          // Increase timeout for 3D Secure authentication
+          threeDSecure: {
+            timeout: 30000 // 30 seconds instead of default
           }
         })
         await cardElement.attach('#card-container')
@@ -289,6 +293,17 @@ export default function PaymentPage() {
             const registerData = await registerResponse.json()
             console.log('Register response status:', registerResponse.status)
             console.log('Register response data:', registerData)
+            console.log('Register response headers:', Object.fromEntries(registerResponse.headers))
+            
+            // Log the full error details
+            if (!registerResponse.ok) {
+              console.error('Registration failed with details:', {
+                status: registerResponse.status,
+                statusText: registerResponse.statusText,
+                data: registerData,
+                url: registerResponse.url
+              })
+            }
 
             if (!registerResponse.ok) {
               setError(registerData.message || 'Failed to create account. Please try again.')
