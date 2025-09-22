@@ -2,6 +2,9 @@ const { SquareClient, SquareEnvironment } = require('square');
 
 class SquareService {
     constructor() {
+        console.log('Initializing Square client with environment:', process.env.SQUARE_ENVIRONMENT);
+        console.log('Square access token present:', !!process.env.SQUARE_ACCESS_TOKEN);
+        
         this.client = new SquareClient({
             accessToken: process.env.SQUARE_ACCESS_TOKEN,
             environment: process.env.SQUARE_ENVIRONMENT === 'production' 
@@ -13,8 +16,7 @@ class SquareService {
     // Create a customer
     async createCustomer(user) {
         try {
-            const { customersApi } = this.client;
-            const response = await customersApi.createCustomer({
+            const response = await this.client.customers.createCustomer({
                 givenName: user.firstName,
                 familyName: user.lastName,
                 emailAddress: user.email,
@@ -168,8 +170,7 @@ class SquareService {
     // Create a card for a customer
     async createCard(customerId, cardToken) {
         try {
-            const { cardsApi } = this.client;
-            const response = await cardsApi.createCard({
+            const response = await this.client.cards.createCard({
                 card: {
                     customerId: customerId,
                     sourceId: cardToken

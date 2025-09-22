@@ -173,7 +173,15 @@ router.post('/create-trial', auth, async (req, res) => {
 
     } catch (error) {
         console.error('Create trial error:', error);
-        res.status(500).json({ error: 'Failed to start free trial' });
+        console.error('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            squareError: error.errors ? error.errors : null
+        });
+        res.status(500).json({ 
+            error: 'Failed to start free trial',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 });
 
