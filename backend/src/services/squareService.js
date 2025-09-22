@@ -193,20 +193,39 @@ class SquareService {
         }
     }
 
-    // Create a card for a customer
+    // Create a card for a customer using direct HTTP request
     async createCard(customerId, cardToken) {
         try {
-            const response = await this.client.cards.create({
+            const cardData = {
+                idempotency_key: `card_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                source_id: cardToken,
                 card: {
-                    customerId: customerId,
-                    sourceId: cardToken
+                    customer_id: customerId
                 }
+            };
+
+            console.log('Making direct HTTP request to create card...');
+            const response = await fetch('https://connect.squareup.com/v2/cards', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(cardData)
             });
 
-            return response.result.card;
+            const responseData = await response.json();
+            console.log('Square card API response status:', response.status);
+            console.log('Square card API response data:', responseData);
+
+            if (!response.ok) {
+                throw new Error(`Square card API error: ${JSON.stringify(responseData)}`);
+            }
+
+            console.log('Card created successfully:', responseData.card.id);
+            return responseData.card;
         } catch (error) {
             console.error('Error creating Square card:', error);
-            console.error('Square API error details:', error.errors);
             throw new Error('Failed to create card');
         }
     }
