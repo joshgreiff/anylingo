@@ -330,24 +330,49 @@ export default function PaymentPage() {
         console.log('Starting trial with token:', token.substring(0, 20) + '...')
         console.log('Trial request data:', { planType: selectedPlan, cardToken: tokenResult.token.substring(0, 20) + '...', trialDays: 7 })
         
-        const response = await fetch(`${API_URL}/api/subscriptions/create-trial`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            planType: selectedPlan,
-            cardToken: tokenResult.token,
-            trialDays: 7
+        // Add a small delay to ensure database consistency after account creation
+        if (!localStorage.getItem('anylingo_token')) {
+          console.log('Adding delay after account creation for database consistency...')
+          await new Promise(resolve => setTimeout(resolve, 2000)) // 2 second delay
+        }
+        
+        // Retry mechanism for trial creation
+        let response: Response | undefined, data: any
+        let retryCount = 0
+        const maxRetries = 3
+        
+        while (retryCount < maxRetries) {
+          response = await fetch(`${API_URL}/api/subscriptions/create-trial`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              planType: selectedPlan,
+              cardToken: tokenResult.token,
+              trialDays: 7
+            })
           })
-        })
 
-        console.log('Trial response status:', response.status)
-        const data = await response.json()
-        console.log('Trial response data:', data)
+          data = await response.json()
+          console.log(`Trial attempt ${retryCount + 1} - Status:`, response.status, 'Data:', data)
 
-        if (response.ok) {
+          if (response.ok) {
+            break // Success, exit retry loop
+          }
+          
+          // If it's a token/user issue and we have retries left, wait and try again
+          if ((response.status === 401 || response.status === 404) && retryCount < maxRetries - 1) {
+            console.log(`Retrying in 2 seconds... (${retryCount + 1}/${maxRetries})`)
+            await new Promise(resolve => setTimeout(resolve, 2000))
+            retryCount++
+          } else {
+            break // Other error or max retries reached
+          }
+        }
+
+        if (response && response.ok) {
           localStorage.setItem('anylingo_trial_info', JSON.stringify({
             plan: selectedPlan,
             trialEndDate: data.trialEndDate,
@@ -356,7 +381,7 @@ export default function PaymentPage() {
           
           router.push('/app')
         } else {
-          setError(data.error || 'Failed to start trial. Please try again.')
+          setError(data?.error || 'Failed to start trial. Please try again.')
         }
       } else {
         setError('Payment information is invalid. Please check your card details.')
