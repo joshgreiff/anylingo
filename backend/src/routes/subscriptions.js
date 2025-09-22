@@ -110,10 +110,17 @@ router.post('/validate-promo', async (req, res) => {
 // Create free trial with payment method
 router.post('/create-trial', auth, async (req, res) => {
     try {
+        console.log('Create trial request received');
+        console.log('Request user:', req.user ? req.user._id : 'No user');
+        console.log('Request userId:', req.userId || 'No userId');
+        
         const { planType, cardToken, trialDays = 7 } = req.body;
-        const user = await User.findById(req.userId);
+        const user = req.user; // User is already loaded by auth middleware
+        
+        console.log('User found:', user ? user._id : 'No user found');
         
         if (!user) {
+            console.log('Returning 404 - User not found');
             return res.status(404).json({ error: 'User not found' });
         }
 

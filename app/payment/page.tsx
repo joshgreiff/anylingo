@@ -234,6 +234,12 @@ export default function PaymentPage() {
   }
 
   const handleStartTrialWithPayment = async () => {
+    // FORCE clear all localStorage data at the start to ensure fresh state
+    console.log('🧹 Force clearing all localStorage data at function start...')
+    localStorage.removeItem('anylingo_token')
+    localStorage.removeItem('anylingo_user_data') 
+    localStorage.removeItem('anylingo_trial_info')
+    
     if (!selectedPlan) {
       setError('Please select a plan.')
       return
@@ -259,17 +265,13 @@ export default function PaymentPage() {
       const tokenResult = await card.tokenize()
       
       if (tokenResult.status === 'OK') {
-        let token = localStorage.getItem('anylingo_token')
+        // ALWAYS clear all tokens to force fresh account creation every time
+        console.log('Force clearing all AnyLingo localStorage data...')
+        localStorage.removeItem('anylingo_token')
+        localStorage.removeItem('anylingo_user_data')
+        localStorage.removeItem('anylingo_trial_info')
         
-        // Clear ALL existing tokens to force fresh account creation
-        // This ensures we don't use stale/invalid tokens from previous sessions
-        if (token) {
-          console.log('Clearing existing token to force fresh account creation:', token.substring(0, 30) + '...')
-          localStorage.removeItem('anylingo_token')
-          localStorage.removeItem('anylingo_user_data')
-          localStorage.removeItem('anylingo_trial_info')
-          token = null
-        }
+        let token = null // Always start fresh
         
         // If no token, create account first (new payment-first flow)
         if (!token) {
@@ -311,6 +313,21 @@ export default function PaymentPage() {
             // Store auth token and user data
             token = registerData.token
             console.log('New token received:', token ? 'Token exists' : 'No token')
+            
+            // Debug: Decode the JWT token to see what user ID it contains
+            if (token) {
+              try {
+                const base64Payload = token.split('.')[1]
+                const payload = JSON.parse(atob(base64Payload))
+                console.log('JWT token payload:', payload)
+                console.log('User ID in token:', payload.userId)
+                console.log('User ID from response:', registerData.user._id)
+                console.log('User IDs match:', payload.userId === registerData.user._id)
+              } catch (e) {
+                console.log('Could not decode JWT token:', e)
+              }
+            }
+            
             localStorage.setItem('anylingo_token', registerData.token)
             localStorage.setItem('anylingo_user_data', JSON.stringify(registerData.user))
             localStorage.removeItem('anylingo_pending_user')
