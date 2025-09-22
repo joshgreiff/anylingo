@@ -11,23 +11,12 @@ class SquareService {
                 ? SquareEnvironment.Production 
                 : SquareEnvironment.Sandbox
         });
-        
-        console.log('Square client created');
-        console.log('Client type:', typeof this.client);
-        console.log('Client keys:', Object.keys(this.client));
-        console.log('Client prototype methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.client)));
-        console.log('customers available:', !!this.client.customers);
-        
-        if (this.client.customers) {
-            console.log('customers type:', typeof this.client.customers);
-            console.log('customers methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.client.customers)));
-        }
     }
 
     // Create a customer
     async createCustomer(user) {
         try {
-            const response = await this.client.customers.createCustomer({
+            const response = await this.client.customers.create({
                 givenName: user.firstName,
                 familyName: user.lastName,
                 emailAddress: user.email,
@@ -181,7 +170,7 @@ class SquareService {
     // Create a card for a customer
     async createCard(customerId, cardToken) {
         try {
-            const response = await this.client.cards.createCard({
+            const response = await this.client.cards.create({
                 card: {
                     customerId: customerId,
                     sourceId: cardToken
