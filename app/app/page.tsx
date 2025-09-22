@@ -49,62 +49,15 @@ function AppPageContent() {
       
       <div className="bg-gray-50 min-h-screen">
         {/* Header */}
-        <header className="header p-4 shadow-md">
-          <div className="container mx-auto flex flex-wrap items-center justify-between">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-white">AnyLingo</h1>
-            </div>
-            
-            <div className="flex flex-wrap items-center space-x-2 md:space-x-4 mt-2 md:mt-0">
-              <button 
-                onClick={() => updateView('create')}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow transition-colors"
-              >
-                Create a New Lesson
-              </button>
-              
-              <button 
-                onClick={() => updateView('content')}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow transition-colors"
-              >
-                Content
-              </button>
-              
-              <button 
-                onClick={() => updateView('readaloud')}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow transition-colors"
-              >
-                ReadAloud
-              </button>
-              
-              <button 
-                onClick={() => updateView('drills')}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md shadow transition-colors"
-              >
-                Training Drills
-              </button>
-              
-              <button 
-                onClick={() => updateView('recording')}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition-colors"
-              >
-                Recording
-              </button>
-              
-              <button 
-                onClick={() => updateView('settings')}
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md shadow transition-colors"
-              >
-                Settings
-              </button>
-
-              <button 
-                id="logoutBtn" 
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition-colors ml-4"
-              >
-                Logout
-              </button>
-            </div>
+        <header className="bg-white shadow-sm border-b">
+          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">AnyLingo</h1>
+            <button 
+              id="logoutBtn" 
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition-colors"
+            >
+              Logout
+            </button>
           </div>
         </header>
 
