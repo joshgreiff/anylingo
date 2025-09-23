@@ -6,6 +6,9 @@ import AccountManagement from '../components/AccountManagement'
 
 function AppPageContent() {
   const [currentView, setCurrentView] = useState('home')
+  const [lessons, setLessons] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -20,6 +23,9 @@ function AppPageContent() {
     // Get view from URL params
     const view = searchParams.get('view') || 'home'
     setCurrentView(view)
+    
+    // Load lessons on mount
+    loadLessons()
   }, [router, searchParams])
 
   const updateView = (view: string) => {
@@ -30,6 +36,76 @@ function AppPageContent() {
   const showSection = (section: string) => {
     setCurrentView(section)
     router.push(`/app?view=${section}`)
+  }
+
+  const loadLessons = async () => {
+    try {
+      const token = localStorage.getItem('anylingo_token')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://anylingo-production.up.railway.app'}/api/lessons`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setLessons(data.lessons || [])
+      }
+    } catch (error) {
+      console.error('Error loading lessons:', error)
+    }
+  }
+
+  const saveLesson = async () => {
+    const title = (document.getElementById('lessonTitle') as HTMLInputElement)?.value
+    const language = (document.getElementById('targetLanguage') as HTMLSelectElement)?.value
+    const content = (document.getElementById('lessonContent') as HTMLTextAreaElement)?.value
+
+    if (!title || !content) {
+      setMessage('Please fill in both title and content')
+      setTimeout(() => setMessage(''), 3000)
+      return
+    }
+
+    setLoading(true)
+    try {
+      const token = localStorage.getItem('anylingo_token')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://anylingo-production.up.railway.app'}/api/lessons`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title,
+          targetLanguage: language,
+          content
+        })
+      })
+
+      if (response.ok) {
+        setMessage('Lesson saved successfully!')
+        // Clear form
+        ;(document.getElementById('lessonTitle') as HTMLInputElement).value = ''
+        ;(document.getElementById('lessonContent') as HTMLTextAreaElement).value = ''
+        // Reload lessons
+        loadLessons()
+        setTimeout(() => setMessage(''), 3000)
+      } else {
+        setMessage('Failed to save lesson')
+        setTimeout(() => setMessage(''), 3000)
+      }
+    } catch (error) {
+      console.error('Error saving lesson:', error)
+      setMessage('Error saving lesson')
+      setTimeout(() => setMessage(''), 3000)
+    }
+    setLoading(false)
+  }
+
+  const clearForm = () => {
+    ;(document.getElementById('lessonTitle') as HTMLInputElement).value = ''
+    ;(document.getElementById('lessonContent') as HTMLTextAreaElement).value = ''
   }
 
   return (
@@ -161,6 +237,12 @@ function AppPageContent() {
           <section id="createLesson" className={`max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md ${currentView === 'createLesson' ? 'block' : 'hidden'}`}>
             <h2 className="text-2xl font-bold mb-6">Create a New Lesson</h2>
             
+            {message && (
+              <div className={`mb-4 p-3 rounded-md ${message.includes('successfully') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                {message}
+              </div>
+            )}
+            
             <form className="space-y-6">
               <div>
                 <label htmlFor="lessonTitle" className="block text-sm font-medium text-gray-700 mb-2">Lesson Title</label>
@@ -194,10 +276,19 @@ function AppPageContent() {
               </div>
               
               <div className="flex space-x-4">
-                <button type="button" className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                  Save Lesson
+                <button 
+                  type="button" 
+                  onClick={saveLesson}
+                  disabled={loading}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Saving...' : 'Save Lesson'}
                 </button>
-                <button type="button" className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+                <button 
+                  type="button" 
+                  onClick={clearForm}
+                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+                >
                   Clear
                 </button>
               </div>
@@ -209,35 +300,33 @@ function AppPageContent() {
             <h2 className="text-2xl font-bold mb-6">My Lessons</h2>
             
             <div className="space-y-4" id="lessonsList">
-              <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Spanish Basics</h3>
-                    <p className="text-gray-600 text-sm mt-1">Basic vocabulary and common phrases</p>
-                    <p className="text-xs text-gray-500 mt-2">Created: Today</p>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">View</button>
-                    <button className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700">Edit</button>
-                    <button className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
-                  </div>
+              {lessons.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No lessons created yet.</p>
+                  <p className="text-sm mt-2">Click "Create New Lesson" to get started!</p>
                 </div>
-              </div>
-              
-              <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">French Conversation</h3>
-                    <p className="text-gray-600 text-sm mt-1">Common conversation starters and responses</p>
-                    <p className="text-xs text-gray-500 mt-2">Created: Yesterday</p>
+              ) : (
+                lessons.map((lesson: any) => (
+                  <div key={lesson._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{lesson.title}</h3>
+                        <p className="text-gray-600 text-sm mt-1">
+                          {lesson.content?.substring(0, 100)}...
+                        </p>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Language: {lesson.targetLanguage?.toUpperCase()} • Created: {new Date(lesson.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">View</button>
+                        <button className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700">Edit</button>
+                        <button className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex space-x-2">
-                    <button className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">View</button>
-                    <button className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700">Edit</button>
-                    <button className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
-                  </div>
-                </div>
-              </div>
+                ))
+              )}
             </div>
             
             <div className="mt-6">
