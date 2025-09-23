@@ -21,20 +21,6 @@ function AppPageContent() {
     // Get view from URL params
     const view = searchParams.get('view') || 'lessons'
     setCurrentView(view)
-
-    // Load the main application script
-    const script = document.createElement('script')
-    script.src = '/script.js'
-    script.async = true
-    document.body.appendChild(script)
-
-    return () => {
-      // Cleanup script when component unmounts
-      const existingScript = document.querySelector('script[src="/script.js"]')
-      if (existingScript) {
-        existingScript.remove()
-      }
-    }
   }, [router, searchParams])
 
   const updateView = (view: string) => {
@@ -48,49 +34,114 @@ function AppPageContent() {
       <link href="/app-styles.css" rel="stylesheet" />
       
       <div className="bg-gray-50 min-h-screen">
-        {/* Header */}
-        <header className="bg-white shadow-sm border-b">
-          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">AnyLingo</h1>
-            <button 
-              id="logoutBtn" 
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition-colors"
-            >
-              Logout
-            </button>
+        {/* Header with Navigation */}
+        <header className="bg-gradient-to-r from-blue-600 to-purple-600 p-4 shadow-md">
+          <div className="container mx-auto flex flex-wrap items-center justify-between">
+            <div className="flex items-center">
+              <h1 className="text-2xl font-bold text-white">AnyLingo</h1>
+            </div>
+            
+            <div className="flex flex-wrap items-center space-x-2 md:space-x-4 mt-2 md:mt-0">
+              <button 
+                onClick={() => updateView('lessons')}
+                className={`px-4 py-2 rounded-md shadow transition-colors ${
+                  currentView === 'lessons' 
+                    ? 'bg-white text-blue-600' 
+                    : 'bg-blue-500 hover:bg-blue-400 text-white'
+                }`}
+              >
+                My Lessons
+              </button>
+              
+              <button 
+                onClick={() => updateView('create')}
+                className={`px-4 py-2 rounded-md shadow transition-colors ${
+                  currentView === 'create' 
+                    ? 'bg-white text-blue-600' 
+                    : 'bg-green-600 hover:bg-green-500 text-white'
+                }`}
+              >
+                Create a New Lesson
+              </button>
+              
+              <button 
+                onClick={() => updateView('content')}
+                className={`px-4 py-2 rounded-md shadow transition-colors ${
+                  currentView === 'content' 
+                    ? 'bg-white text-blue-600' 
+                    : 'bg-yellow-600 hover:bg-yellow-500 text-white'
+                }`}
+              >
+                Content
+              </button>
+              
+              <button 
+                onClick={() => updateView('readaloud')}
+                className={`px-4 py-2 rounded-md shadow transition-colors ${
+                  currentView === 'readaloud' 
+                    ? 'bg-white text-blue-600' 
+                    : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                }`}
+              >
+                ReadAloud
+              </button>
+              
+              <button 
+                onClick={() => updateView('drills')}
+                className={`px-4 py-2 rounded-md shadow transition-colors ${
+                  currentView === 'drills' 
+                    ? 'bg-white text-blue-600' 
+                    : 'bg-purple-600 hover:bg-purple-500 text-white'
+                }`}
+              >
+                Training Drills
+              </button>
+              
+              <button 
+                onClick={() => updateView('recording')}
+                className={`px-4 py-2 rounded-md shadow transition-colors ${
+                  currentView === 'recording' 
+                    ? 'bg-white text-blue-600' 
+                    : 'bg-red-600 hover:bg-red-500 text-white'
+                }`}
+              >
+                Recording
+              </button>
+              
+              <button 
+                onClick={() => updateView('account')}
+                className={`px-4 py-2 rounded-md shadow transition-colors ${
+                  currentView === 'account' 
+                    ? 'bg-white text-blue-600' 
+                    : 'bg-gray-600 hover:bg-gray-500 text-white'
+                }`}
+              >
+                Account
+              </button>
+              
+              <button 
+                onClick={() => updateView('settings')}
+                className={`px-4 py-2 rounded-md shadow transition-colors ${
+                  currentView === 'settings' 
+                    ? 'bg-white text-blue-600' 
+                    : 'bg-gray-600 hover:bg-gray-500 text-white'
+                }`}
+              >
+                Settings
+              </button>
+
+              <button 
+                id="logoutBtn" 
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition-colors ml-4"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </header>
 
         {/* Main Content Area */}
         <main className="container mx-auto p-4">
-          {/* Navigation Tabs */}
-          <div className="mb-6">
-            <nav className="flex space-x-1 bg-white rounded-lg p-1 shadow">
-              {[
-                { key: 'lessons', label: 'My Lessons', icon: '📚' },
-                { key: 'create', label: 'Create Lesson', icon: '➕' },
-                { key: 'content', label: 'Content', icon: '📝' },
-                { key: 'readaloud', label: 'Read Aloud', icon: '🔊' },
-                { key: 'drills', label: 'Training Drills', icon: '🎯' },
-                { key: 'recording', label: 'Recording', icon: '🎤' },
-                { key: 'account', label: 'Account', icon: '👤' },
-                { key: 'settings', label: 'Settings', icon: '⚙️' }
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => updateView(tab.key)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    currentView === tab.key
-                      ? 'bg-blue-600 text-white shadow'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  }`}
-                >
-                  <span>{tab.icon}</span>
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </button>
-              ))}
-            </nav>
-          </div>
 
           {/* Dynamic Content Areas */}
           <div className="space-y-6">
