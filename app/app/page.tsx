@@ -103,6 +103,37 @@ function AppPageContent() {
     setLoading(false)
   }
 
+  const deleteLesson = async (lessonId: string, lessonTitle: string) => {
+    if (!confirm(`Are you sure you want to delete "${lessonTitle}"? This action cannot be undone.`)) {
+      return
+    }
+
+    setLoading(true)
+    try {
+      const token = localStorage.getItem('anylingo_token')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://anylingo-production.up.railway.app'}/api/lessons/${lessonId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        setMessage('Lesson deleted successfully!')
+        loadLessons() // Reload lessons
+        setTimeout(() => setMessage(''), 3000)
+      } else {
+        setMessage('Failed to delete lesson')
+        setTimeout(() => setMessage(''), 3000)
+      }
+    } catch (error) {
+      console.error('Error deleting lesson:', error)
+      setMessage('Error deleting lesson')
+      setTimeout(() => setMessage(''), 3000)
+    }
+    setLoading(false)
+  }
+
   const clearForm = () => {
     ;(document.getElementById('lessonTitle') as HTMLInputElement).value = ''
     ;(document.getElementById('lessonContent') as HTMLTextAreaElement).value = ''
@@ -302,8 +333,8 @@ function AppPageContent() {
             <div className="space-y-4" id="lessonsList">
               {lessons.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  <p>No lessons created yet.</p>
-                  <p className="text-sm mt-2">Click "Create New Lesson" to get started!</p>
+                  <p>Loading your lessons...</p>
+                  <p className="text-sm mt-2">If you're a new user, default lessons should appear shortly.</p>
                 </div>
               ) : (
                 lessons.map((lesson: any) => (
@@ -312,16 +343,22 @@ function AppPageContent() {
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900">{lesson.title}</h3>
                         <p className="text-gray-600 text-sm mt-1">
-                          {lesson.content?.substring(0, 100)}...
+                          {(lesson.content?.original || lesson.content)?.substring(0, 100)}...
                         </p>
                         <p className="text-xs text-gray-500 mt-2">
-                          Language: {lesson.targetLanguage?.toUpperCase()} • Created: {new Date(lesson.createdAt).toLocaleDateString()}
+                          Language: {(lesson.languages?.target || lesson.targetLanguage)?.toUpperCase()} • Created: {new Date(lesson.createdAt).toLocaleDateString()}
                         </p>
                       </div>
                       <div className="flex space-x-2">
                         <button className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">View</button>
                         <button className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700">Edit</button>
-                        <button className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
+                        <button 
+                          onClick={() => deleteLesson(lesson._id, lesson.title)}
+                          disabled={loading}
+                          className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </div>
                   </div>
