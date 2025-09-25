@@ -10,6 +10,7 @@ function AppPageContent() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [currentDrill, setCurrentDrill] = useState<string | null>(null)
+  const [currentLesson, setCurrentLesson] = useState<any>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -27,6 +28,16 @@ function AppPageContent() {
     
     // Load lessons on mount
     loadLessons()
+    
+    // Load current lesson from localStorage
+    const savedCurrentLesson = localStorage.getItem('currentLesson')
+    if (savedCurrentLesson) {
+      try {
+        setCurrentLesson(JSON.parse(savedCurrentLesson))
+      } catch (error) {
+        console.error('Error loading current lesson:', error)
+      }
+    }
   }, [router, searchParams])
 
   const updateView = (view: string) => {
@@ -164,6 +175,13 @@ function AppPageContent() {
     }
   }
 
+  const setActiveLesson = (lesson: any) => {
+    setCurrentLesson(lesson)
+    localStorage.setItem('currentLesson', JSON.stringify(lesson))
+    setMessage(`Active lesson set to: ${lesson.title}`)
+    setTimeout(() => setMessage(''), 3000)
+  }
+
   return (
     <>
       <div className="bg-gray-50 min-h-screen">
@@ -219,11 +237,7 @@ function AppPageContent() {
 
               <button 
                 id="logoutBtn" 
-                onClick={() => {
-                  console.log('Logout clicked!')
-                  alert('Logout clicked!')
-                  handleLogout()
-                }}
+                onClick={handleLogout}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition-colors"
               >
                 Logout
@@ -368,10 +382,15 @@ function AppPageContent() {
                 </div>
               ) : (
                 lessons.map((lesson: any) => (
-                  <div key={lesson._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div key={lesson._id} className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${currentLesson?._id === lesson._id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{lesson.title}</h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg font-semibold text-gray-900">{lesson.title}</h3>
+                          {currentLesson?._id === lesson._id && (
+                            <span className="px-2 py-1 text-xs bg-blue-600 text-white rounded-full">Active</span>
+                          )}
+                        </div>
                         <p className="text-gray-600 text-sm mt-1">
                           {(lesson.content?.original || lesson.content)?.substring(0, 100)}...
                         </p>
@@ -380,6 +399,14 @@ function AppPageContent() {
                         </p>
                       </div>
                       <div className="flex space-x-2">
+                        {currentLesson?._id !== lesson._id && (
+                          <button 
+                            onClick={() => setActiveLesson(lesson)}
+                            className="px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700"
+                          >
+                            Set Active
+                          </button>
+                        )}
                         <button className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">View</button>
                         <button className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700">Edit</button>
                         <button 
@@ -454,52 +481,66 @@ function AppPageContent() {
           <section id="translate" className={`max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md ${currentView === 'translate' ? 'block' : 'hidden'}`}>
             <h2 className="text-2xl font-bold mb-6">Translation</h2>
             
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">From Language</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md">
-                    <option>Spanish</option>
-                    <option>French</option>
-                    <option>German</option>
-                    <option>English</option>
-                  </select>
+            {currentLesson ? (
+              <div className="space-y-6">
+                <div className="bg-blue-50 p-4 rounded-md border border-blue-200">
+                  <h3 className="font-semibold text-blue-900 mb-2">Active Lesson: {currentLesson.title}</h3>
+                  <p className="text-sm text-blue-700">Working with your active lesson content</p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">To Language</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md">
-                    <option>English</option>
-                    <option>Spanish</option>
-                    <option>French</option>
-                    <option>German</option>
-                  </select>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">From Language</label>
+                    <select className="w-full px-3 py-2 border border-gray-300 rounded-md">
+                      <option value="en">English</option>
+                      <option value="es">Spanish</option>
+                      <option value="fr">French</option>
+                      <option value="de">German</option>
+                      <option value="fi">Finnish</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">To Language</label>
+                    <select className="w-full px-3 py-2 border border-gray-300 rounded-md">
+                      <option value="en">English</option>
+                      <option value="es">Spanish</option>
+                      <option value="fr">French</option>
+                      <option value="de">German</option>
+                      <option value="fi">Finnish</option>
+                    </select>
+                  </div>
                 </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Original Text</label>
+                    <textarea 
+                      rows={8} 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      defaultValue={currentLesson.content?.original || currentLesson.content}
+                    ></textarea>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Translation</label>
+                    <textarea 
+                      rows={8} 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+                      placeholder="Translation will appear here..."
+                      readOnly
+                    ></textarea>
+                  </div>
+                </div>
+                
+                <button className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                  Translate
+                </button>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Original Text</label>
-                  <textarea 
-                    rows={8} 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter text to translate..."
-                  ></textarea>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Translation</label>
-                  <textarea 
-                    rows={8} 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
-                    placeholder="Translation will appear here..."
-                    readOnly
-                  ></textarea>
-                </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <p className="mb-4">No active lesson selected</p>
+                <p className="text-sm">Go to the Content section and click "Set Active" on a lesson to start working with it.</p>
               </div>
-              
-              <button className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                Translate
-              </button>
-            </div>
+            )}
           </section>
 
           {/* Drills Section */}
@@ -572,10 +613,10 @@ function AppPageContent() {
                 </div>
                 
                 <div className="border p-4 rounded-md bg-gray-50 h-96 overflow-y-auto">
-                  {lessons.length > 0 ? (
-                    <pre className="whitespace-pre-wrap">{lessons[0].content?.original || lessons[0].content}</pre>
+                  {currentLesson ? (
+                    <pre className="whitespace-pre-wrap">{currentLesson.content?.original || currentLesson.content}</pre>
                   ) : (
-                    <p className="text-gray-500 text-center">Select a lesson to practice with Drill 1</p>
+                    <p className="text-gray-500 text-center">No active lesson. Go to Content section and click "Set Active" on a lesson.</p>
                   )}
                 </div>
               </div>
@@ -596,10 +637,10 @@ function AppPageContent() {
                 </div>
                 
                 <div className="border p-4 rounded-md bg-gray-50 h-96 overflow-y-auto cursor-text">
-                  {lessons.length > 0 ? (
-                    <div className="whitespace-pre-wrap">{lessons[0].content?.original || lessons[0].content}</div>
+                  {currentLesson ? (
+                    <div className="whitespace-pre-wrap">{currentLesson.content?.original || currentLesson.content}</div>
                   ) : (
-                    <p className="text-gray-500 text-center">Select a lesson to practice with Drill 2</p>
+                    <p className="text-gray-500 text-center">No active lesson. Go to Content section and click "Set Active" on a lesson.</p>
                   )}
                 </div>
               </div>
@@ -626,10 +667,10 @@ function AppPageContent() {
                 </div>
                 
                 <div className="border p-4 rounded-md bg-gray-50 h-96 overflow-y-auto">
-                  {lessons.length > 0 ? (
-                    <pre className="whitespace-pre-wrap">{lessons[0].content?.original || lessons[0].content}</pre>
+                  {currentLesson ? (
+                    <pre className="whitespace-pre-wrap">{currentLesson.content?.original || currentLesson.content}</pre>
                   ) : (
-                    <p className="text-gray-500 text-center">Select a lesson to practice with Drill 4</p>
+                    <p className="text-gray-500 text-center">No active lesson. Go to Content section and click "Set Active" on a lesson.</p>
                   )}
                 </div>
               </div>
@@ -646,7 +687,7 @@ function AppPageContent() {
                     <textarea 
                       rows={8} 
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      defaultValue={lessons.length > 0 ? (lessons[0].content?.original || lessons[0].content) : ''}
+                      defaultValue={currentLesson ? (currentLesson.content?.original || currentLesson.content) : ''}
                       placeholder="Enter text for fluency practice..."
                     />
                   </div>
