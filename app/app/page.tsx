@@ -484,6 +484,10 @@ function AppPageContent() {
       console.log('Content element not found!')
       return
     }
+    if (wordBoundaries.length === 0) {
+      console.log('Word boundaries array is empty, skipping highlight')
+      return
+    }
     if (wordIndex >= wordBoundaries.length) {
       console.log('Word index out of bounds:', wordIndex, 'vs', wordBoundaries.length)
       return
@@ -557,6 +561,10 @@ function AppPageContent() {
     console.log('Estimated duration:', duration, 'seconds, Start time:', startTime)
     
     // Start highlighting words based on speech timing
+    // Store boundaries in closure to avoid React state issues
+    const localBoundaries = [...boundaries]
+    let currentHighlightIndex: number | null = null
+    
     const interval = setInterval(() => {
       // Check if speech is still active (but be less strict about paused state)
       if (!window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
@@ -578,19 +586,34 @@ function AppPageContent() {
       const progress = adjustedElapsedTime / (duration * 1000)
       const targetWordIndex = Math.floor(progress * wordsArray.length)
       
-      console.log('Elapsed:', elapsedTime, 'Duration:', duration * 1000, 'Progress:', progress.toFixed(3), 'Target word:', targetWordIndex, '/', wordsArray.length, 'Current:', currentHighlightedWord)
+      console.log('Elapsed:', elapsedTime, 'Duration:', duration * 1000, 'Progress:', progress.toFixed(3), 'Target word:', targetWordIndex, '/', wordsArray.length, 'Current:', currentHighlightIndex)
       
-      if (targetWordIndex !== currentHighlightedWord && targetWordIndex < wordsArray.length && targetWordIndex >= 0) {
+      if (targetWordIndex !== currentHighlightIndex && targetWordIndex < wordsArray.length && targetWordIndex >= 0 && targetWordIndex < localBoundaries.length) {
         console.log('Highlighting word', targetWordIndex, ':', wordsArray[targetWordIndex])
         
         // Remove previous highlight
-        if (currentHighlightedWord !== null) {
-          removeWordHighlight(currentHighlightedWord)
+        if (currentHighlightIndex !== null) {
+          // Restore original content
+          const contentElement = document.getElementById('readAloudContent')
+          if (contentElement && currentLesson) {
+            contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${currentLesson.content?.original || currentLesson.content}</pre>`
+          }
         }
         
-        // Add new highlight
-        setCurrentHighlightedWord(targetWordIndex)
-        addWordHighlight(targetWordIndex)
+        // Add new highlight directly
+        const contentElement = document.getElementById('readAloudContent')
+        if (contentElement && currentLesson && targetWordIndex < localBoundaries.length) {
+          const boundary = localBoundaries[targetWordIndex]
+          const content = currentLesson.content?.original || currentLesson.content
+          
+          // Create highlighted version
+          const before = content.substring(0, boundary.start)
+          const word = content.substring(boundary.start, boundary.end)
+          const after = content.substring(boundary.end)
+          
+          contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${before}<span class="bg-green-300 text-green-800 px-1 rounded">${word}</span>${after}</pre>`
+          currentHighlightIndex = targetWordIndex
+        }
       }
     }, 100) // Increased to 100ms for better debugging
     
