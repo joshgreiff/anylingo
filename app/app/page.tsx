@@ -171,16 +171,13 @@ function AppPageContent() {
   }
 
   const handleLogout = () => {
-    console.log('Logout button clicked!')
     try {
       // Clear all localStorage data
       localStorage.removeItem('anylingo_token')
       localStorage.removeItem('anylingo_user_data')
       localStorage.removeItem('anylingo_pending_user')
-      console.log('LocalStorage cleared')
       
       // Redirect to signup page
-      console.log('Redirecting to signup...')
       router.push('/signup')
     } catch (error) {
       console.error('Logout error:', error)
@@ -381,14 +378,13 @@ function AppPageContent() {
     newUtterance.rate = speechRate
     
     newUtterance.onstart = () => {
-      console.log('Speech started - setting up highlighting')
+
       setIsPlaying(true)
       setIsPaused(false)
       startWordHighlighting()
     }
     
     newUtterance.onend = () => {
-      console.log('Speech ended - clearing highlights')
       setIsPlaying(false)
       setIsPaused(false)
       clearWordHighlights()
@@ -398,7 +394,6 @@ function AppPageContent() {
     }
     
     newUtterance.onpause = () => {
-      console.log('Speech paused - clearing highlights')
       setIsPlaying(false)
       setIsPaused(true)
       clearWordHighlights()
@@ -446,7 +441,6 @@ function AppPageContent() {
   }
 
   const clearWordHighlights = () => {
-    console.log('Clearing word highlights')
     if (highlightInterval) {
       clearInterval(highlightInterval)
       setHighlightInterval(null)
@@ -465,7 +459,6 @@ function AppPageContent() {
   }
 
   const clearVisualHighlights = () => {
-    console.log('Clearing visual highlights only')
     setCurrentHighlightedWord(null)
     
     // Restore original content
@@ -478,18 +471,14 @@ function AppPageContent() {
   }
 
   const addWordHighlight = (wordIndex: number) => {
-    console.log('Adding highlight to word', wordIndex)
     const contentElement = document.getElementById('readAloudContent')
     if (!contentElement) {
-      console.log('Content element not found!')
       return
     }
     if (wordBoundaries.length === 0) {
-      console.log('Word boundaries array is empty, skipping highlight')
       return
     }
     if (wordIndex >= wordBoundaries.length) {
-      console.log('Word index out of bounds:', wordIndex, 'vs', wordBoundaries.length)
       return
     }
     
@@ -501,7 +490,6 @@ function AppPageContent() {
     const word = content.substring(boundary.start, boundary.end)
     const after = content.substring(boundary.end)
     
-    console.log('Highlighting word:', word, 'at position', boundary.start, '-', boundary.end)
     contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${before}<span class="bg-green-300 text-green-800 px-1 rounded">${word}</span>${after}</pre>`
   }
 
@@ -521,9 +509,7 @@ function AppPageContent() {
   }
 
   const startWordHighlighting = () => {
-    console.log('Starting word highlighting...')
     if (!currentLesson) {
-      console.log('Cannot start highlighting: no currentLesson')
       return
     }
     
@@ -532,7 +518,6 @@ function AppPageContent() {
     
     const content = currentLesson.content?.original || currentLesson.content
     const wordsArray = content.split(/\s+/)
-    console.log('Words to highlight:', wordsArray.length, 'words')
     setWords(wordsArray)
     
     // Create word boundaries for highlighting
@@ -550,7 +535,6 @@ function AppPageContent() {
       currentPos = wordEnd
     })
     setWordBoundaries(boundaries)
-    console.log('Word boundaries created:', boundaries.length)
     
     // Calculate estimated duration
     const wordsPerMinute = 120 * speechRate
@@ -558,7 +542,6 @@ function AppPageContent() {
     setEstimatedDuration(duration)
     const startTime = Date.now()
     setSpeechStartTime(startTime)
-    console.log('Estimated duration:', duration, 'seconds, Start time:', startTime)
     
     // Start highlighting words based on speech timing
     // Store boundaries in closure to avoid React state issues
@@ -568,14 +551,12 @@ function AppPageContent() {
     const interval = setInterval(() => {
       // Check if speech is still active (but be less strict about paused state)
       if (!window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
-        console.log('Stopping highlighting - speech not active and not paused')
         clearInterval(interval)
         return
       }
       
-      // Continue highlighting even if paused (for testing)
-      if (!window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
-        console.log('Speech not active at all, skipping highlight update')
+      // Stop highlighting if speech is paused
+      if (!window.speechSynthesis.speaking) {
         return
       }
       
@@ -586,10 +567,8 @@ function AppPageContent() {
       const progress = adjustedElapsedTime / (duration * 1000)
       const targetWordIndex = Math.floor(progress * wordsArray.length)
       
-      console.log('Elapsed:', elapsedTime, 'Duration:', duration * 1000, 'Progress:', progress.toFixed(3), 'Target word:', targetWordIndex, '/', wordsArray.length, 'Current:', currentHighlightIndex)
       
       if (targetWordIndex !== currentHighlightIndex && targetWordIndex < wordsArray.length && targetWordIndex >= 0 && targetWordIndex < localBoundaries.length) {
-        console.log('Highlighting word', targetWordIndex, ':', wordsArray[targetWordIndex])
         
         // Remove previous highlight
         if (currentHighlightIndex !== null) {
@@ -618,13 +597,8 @@ function AppPageContent() {
     }, 100) // Increased to 100ms for better debugging
     
     setHighlightInterval(interval)
-    console.log('Highlighting interval started')
     
-    // Test highlighting immediately
-    setTimeout(() => {
-      console.log('Testing manual highlight of first word')
-      addWordHighlight(0)
-    }, 500)
+
   }
 
   return (
@@ -980,40 +954,6 @@ function AppPageContent() {
                     >
                       🔄 Loop {isLooping ? 'ON' : 'OFF'}
                     </button>
-                    <button 
-                      onClick={() => {
-                        console.log('Manual highlight test - highlighting word 0')
-                        if (currentLesson) {
-                          addWordHighlight(0)
-                          setTimeout(() => {
-                            console.log('Manual highlight test - highlighting word 1')
-                            addWordHighlight(1)
-                          }, 1000)
-                          setTimeout(() => {
-                            console.log('Manual highlight test - highlighting word 2')
-                            addWordHighlight(2)
-                          }, 2000)
-                        }
-                      }}
-                      className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
-                    >
-                      🔍 Test Highlight
-                    </button>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Speech Rate: {speechRate}x</label>
-                      <input 
-                        type="range" 
-                        min="0.5" 
-                        max="2" 
-                        step="0.1" 
-                        value={speechRate}
-                        onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
-                        className="w-full" 
-                      />
-                    </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Browser Voice</label>
                       <select className="w-full px-2 py-1 border border-gray-300 rounded text-sm">
