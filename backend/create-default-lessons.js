@@ -144,11 +144,21 @@ const Lesson = mongoose.model('Lesson', lessonSchema);
 // Since I can't access the actual files, I'll create sample lessons based on typical language learning content
 const defaultLessons = [
     {
-        title: "Daily Conversation Basics",
+        title: "The Olive Grove of Secrets",
         content: {
-            original: `Good morning! How are you today? I'm doing well, thank you. What are your plans for today? I have a meeting at 10 AM, then lunch with a friend. That sounds nice! I hope you have a great day. Thank you, you too!
+            original: `A quiet girl named Lola lived in a small village in southern Spain. Her family owned an ancient olive grove that had been passed down for generations. Lola's father, who loved poetry and the land, had taught her to care for the twisted trees. But when he died suddenly, the grove began to wither, and the family struggled to pay their debts.
 
-This basic conversation covers common greetings and everyday interactions. Practice these phrases to build confidence in daily conversations.`,
+While searching her father's old desk one afternoon, Lola found a leather journal hidden beneath a stack of yellowed papers. Inside were sketches of the grove and a mysterious sentence: "Beneath the oldest tree lies the truth we bury." Her hands trembled. Could this be a clue to a secret her father had left behind?
+
+That night, Lola crept into the grove with a shovel. The moon cast long shadows over the gnarled trees as she dug beneath the largest olive tree, its branches clawing at the sky. Her shovel struck something hard—a metal box. Inside was a bundle of letters, a faded photograph of her father as a young man, and a small bag of gold coins.
+
+The letters told a story Lola had never heard. Decades ago, her grandfather had hidden the coins during the Spanish Civil War to protect the family. But her father had chosen to leave the treasure untouched, writing, "Some secrets are better left as roots. The grove is our true wealth."
+
+Lola stared at the coins. They could save her family from poverty. But her father's words echoed in her mind. The following day, she showed the box to her mother, who wept and hugged her tightly. "Your father was a dreamer," her mother said, "but he taught us that dignity grows slowly, like these trees."
+
+In the end, Lola returns the coins to the earth. She poured her energy into reviving the grove, pruning the trees and selling olives at the market. Slowly, the branches grew strong again, heavy with fruit.
+
+Years later, when Lola won a literary prize for a novel inspired by her father's journal, reporters asked about the "secret" to her success. She smiled and said, "The best stories are not those we dig up, but those we plant with patience."`,
             translated: ""
         },
         languages: {
@@ -156,152 +166,30 @@ This basic conversation covers common greetings and everyday interactions. Pract
             target: "es"
         },
         category: "daily",
-        difficulty: "beginner",
-        tags: ["greetings", "daily", "conversation"]
-    },
-    {
-        title: "Restaurant Ordering",
-        content: {
-            original: `Excuse me, could I see the menu please? Of course! Here you are. What would you like to drink? I'll have a glass of water and a coffee, please. And for your main course? I'd like the grilled chicken with vegetables. How would you like that cooked? Medium, please. Excellent choice! It will be ready in about 15 minutes.
-
-This lesson covers essential phrases for dining out and ordering food in restaurants.`,
-            translated: ""
-        },
-        languages: {
-            source: "en",
-            target: "es"
-        },
-        category: "travel",
-        difficulty: "beginner",
-        tags: ["restaurant", "food", "ordering"]
-    },
-    {
-        title: "Business Meeting Introduction",
-        content: {
-            original: `Good afternoon everyone. Let me introduce myself - I'm Sarah Johnson from the marketing department. I've been with the company for three years. Today we'll be discussing our quarterly results and planning for the next quarter. First, let's review our achievements from this quarter. Sales have increased by 15% compared to last quarter. Our customer satisfaction ratings have also improved significantly.
-
-This lesson focuses on professional introductions and business communication.`,
-            translated: ""
-        },
-        languages: {
-            source: "en",
-            target: "es"
-        },
-        category: "business",
         difficulty: "intermediate",
-        tags: ["business", "meetings", "professional"]
+        tags: ["story", "family", "secrets", "spain"]
     },
     {
-        title: "Shopping and Prices",
+        title: "The Day of Failure",
         content: {
-            original: `Excuse me, how much does this shirt cost? It's $25. Do you have it in a different color? Yes, we have it in blue, red, and black. Can I try it on? Of course! The fitting rooms are over there. This fits perfectly. I'll take it. Would you like to pay by cash or card? Card, please. Here's your receipt. Thank you for shopping with us!
+            original: `In Finland, people have a special day, not for success, but for failure. It is called the Day of Failure, or "Epäonnistumisen Päivä" in Finnish, and it is observed annually on October 13th. This day is a time to share stories of mistakes and things that went wrong.
 
-Learn essential vocabulary and phrases for shopping and making purchases.`,
+The idea for this day started in 2010 with a group of students in Finland. They observed that many people were hesitant to try new things, such as starting a business, because they were afraid of failure. The students wanted to change this. They believed that making mistakes is a regular part of life and an important step to learn and succeeding.
+
+On the Day of Failure, people are encouraged to discuss their mistakes openly and honestly. Famous people often share stories about the times they failed before achieving success. This helps everyone understand that failure is not something to be ashamed of. Instead, it is a chance to learn.
+
+Imagine a boy named Leo who wants to bake a cake. He tries his best, but he burns it. On the Day of Failure, he can share a picture of his burnt cake. His friends will not laugh at him. They will cheer for him because he made an effort. They may share their own stories of burnt cakes or other mistakes.
+
+This special day teaches an important lesson: it is okay not to be perfect. Every mistake is a learning experience. By sharing our failures, we can become braver and more willing to try again. The Day of Failure reminds us that minor setbacks often mark the path to success, and that is perfectly fine.`,
             translated: ""
         },
         languages: {
             source: "en",
-            target: "es"
+            target: "fi"
         },
         category: "daily",
-        difficulty: "beginner",
-        tags: ["shopping", "money", "clothes"]
-    },
-    {
-        title: "Travel and Directions",
-        content: {
-            original: `Excuse me, could you help me find the train station? Sure! Go straight down this street for two blocks, then turn left at the traffic light. You'll see the station on your right. How long does it take to walk there? About 10 minutes. Is there a bus that goes there? Yes, bus number 42 stops right in front of the station. Where can I catch that bus? There's a bus stop just around the corner. Thank you so much for your help!
-
-Master asking for and giving directions while traveling.`,
-            translated: ""
-        },
-        languages: {
-            source: "en",
-            target: "es"
-        },
-        category: "travel",
-        difficulty: "beginner",
-        tags: ["directions", "transportation", "travel"]
-    },
-    {
-        title: "Academic Discussion",
-        content: {
-            original: `Today we're going to discuss the impact of technology on modern education. Digital tools have revolutionized how students learn and teachers instruct. Online platforms provide access to vast resources and enable remote learning. However, there are challenges such as the digital divide and screen time concerns. Interactive software can make learning more engaging, but it's important to maintain human connection in education. What are your thoughts on balancing technology with traditional teaching methods?
-
-This lesson explores academic vocabulary and discussion techniques.`,
-            translated: ""
-        },
-        languages: {
-            source: "en",
-            target: "es"
-        },
-        category: "academic",
-        difficulty: "advanced",
-        tags: ["education", "technology", "discussion"]
-    },
-    {
-        title: "Hobbies and Free Time",
-        content: {
-            original: `What do you like to do in your free time? I enjoy reading books and playing guitar. That's interesting! How long have you been playing guitar? I started about five years ago. It's very relaxing. Do you play any sports? Yes, I play tennis twice a week. It's great exercise and I've met many friends through the tennis club. I also like cooking on weekends. What's your favorite dish to cook? I love making pasta with fresh ingredients from the local market.
-
-Practice talking about hobbies, interests, and leisure activities.`,
-            translated: ""
-        },
-        languages: {
-            source: "en",
-            target: "es"
-        },
-        category: "hobby",
         difficulty: "intermediate",
-        tags: ["hobbies", "sports", "leisure"]
-    },
-    {
-        title: "Healthcare and Appointments",
-        content: {
-            original: `Hello, I'd like to make an appointment with Dr. Smith. What seems to be the problem? I've been having headaches for the past week. I can schedule you for tomorrow at 2 PM. Is that convenient? Yes, that works perfectly. Please bring your insurance card and arrive 15 minutes early. Should I prepare anything else? Just a list of any medications you're currently taking. Thank you. I'll see you tomorrow at 2 PM.
-
-Learn vocabulary and phrases for healthcare situations and medical appointments.`,
-            translated: ""
-        },
-        languages: {
-            source: "en",
-            target: "es"
-        },
-        category: "other",
-        difficulty: "intermediate",
-        tags: ["health", "appointments", "medical"]
-    },
-    {
-        title: "Weather and Seasons",
-        content: {
-            original: `What's the weather like today? It's sunny and warm, about 25 degrees. Perfect weather for a picnic! Yes, I love spring weather. The flowers are blooming and everything looks so green. What's your favorite season? I prefer autumn because I enjoy the cooler temperatures and beautiful colored leaves. Winter can be beautiful too, especially when it snows. Summer is great for swimming and outdoor activities. Each season has its own charm and special activities.
-
-Discuss weather, seasons, and related activities.`,
-            translated: ""
-        },
-        languages: {
-            source: "en",
-            target: "es"
-        },
-        category: "daily",
-        difficulty: "beginner",
-        tags: ["weather", "seasons", "nature"]
-    },
-    {
-        title: "Technology and Communication",
-        content: {
-            original: `How do you usually communicate with your friends? I mostly use messaging apps and social media. Sometimes I make video calls with family who live far away. Technology has made it so easy to stay in touch with people. Do you prefer texting or calling? It depends on the situation. For quick questions, I text. For important conversations, I prefer calling. Email is still useful for work and formal communication. What about you? Do you use any particular apps? I like using video chat because you can see facial expressions and body language.
-
-Explore modern communication methods and technology vocabulary.`,
-            translated: ""
-        },
-        languages: {
-            source: "en",
-            target: "es"
-        },
-        category: "other",
-        difficulty: "intermediate",
-        tags: ["technology", "communication", "modern"]
+        tags: ["culture", "finland", "learning", "failure"]
     }
 ];
 
