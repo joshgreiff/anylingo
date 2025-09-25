@@ -381,9 +381,11 @@ function AppPageContent() {
     newUtterance.rate = speechRate
     
     newUtterance.onstart = () => {
+      console.log('Speech started - setting up highlighting')
       setIsPlaying(true)
       setIsPaused(false)
-      startWordHighlighting()
+      // Small delay to ensure state is updated
+      setTimeout(() => startWordHighlighting(), 100)
     }
     
     newUtterance.onend = () => {
@@ -461,8 +463,16 @@ function AppPageContent() {
   }
 
   const addWordHighlight = (wordIndex: number) => {
+    console.log('Adding highlight to word', wordIndex)
     const contentElement = document.getElementById('readAloudContent')
-    if (!contentElement || wordIndex >= wordBoundaries.length) return
+    if (!contentElement) {
+      console.log('Content element not found!')
+      return
+    }
+    if (wordIndex >= wordBoundaries.length) {
+      console.log('Word index out of bounds:', wordIndex, 'vs', wordBoundaries.length)
+      return
+    }
     
     const boundary = wordBoundaries[wordIndex]
     const content = currentLesson.content?.original || currentLesson.content
@@ -472,6 +482,7 @@ function AppPageContent() {
     const word = content.substring(boundary.start, boundary.end)
     const after = content.substring(boundary.end)
     
+    console.log('Highlighting word:', word, 'at position', boundary.start, '-', boundary.end)
     contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${before}<span class="bg-green-300 text-green-800 px-1 rounded">${word}</span>${after}</pre>`
   }
 
@@ -491,13 +502,18 @@ function AppPageContent() {
   }
 
   const startWordHighlighting = () => {
-    if (!currentLesson || !isPlaying) return
+    console.log('Starting word highlighting...')
+    if (!currentLesson || !isPlaying) {
+      console.log('Cannot start highlighting: currentLesson =', !!currentLesson, 'isPlaying =', isPlaying)
+      return
+    }
     
     // Clear any existing highlights
     clearWordHighlights()
     
     const content = currentLesson.content?.original || currentLesson.content
     const wordsArray = content.split(/\s+/)
+    console.log('Words to highlight:', wordsArray.length, 'words')
     setWords(wordsArray)
     
     // Create word boundaries for highlighting
@@ -515,28 +531,34 @@ function AppPageContent() {
       currentPos = wordEnd
     })
     setWordBoundaries(boundaries)
+    console.log('Word boundaries created:', boundaries.length)
     
     // Calculate estimated duration
     const wordsPerMinute = 120 * speechRate
     const duration = (wordsArray.length / wordsPerMinute) * 60
     setEstimatedDuration(duration)
-    setSpeechStartTime(Date.now())
+    const startTime = Date.now()
+    setSpeechStartTime(startTime)
+    console.log('Estimated duration:', duration, 'seconds, Start time:', startTime)
     
     // Start highlighting words based on speech timing
     const interval = setInterval(() => {
       if (!isPlaying) {
+        console.log('Stopping highlighting - not playing')
         clearWordHighlights()
         return
       }
       
-      // Calculate word position based on speech progress
-      const elapsedTime = Date.now() - speechStartTime
+              // Calculate word position based on speech progress
+        const elapsedTime = Date.now() - speechStartTime
       const timingFactor = 1.6 // Speed up factor for highlighting
       const adjustedElapsedTime = elapsedTime * timingFactor
       const progress = adjustedElapsedTime / (duration * 1000)
       const targetWordIndex = Math.floor(progress * wordsArray.length)
       
-      if (targetWordIndex !== currentHighlightedWord && targetWordIndex < wordsArray.length) {
+      if (targetWordIndex !== currentHighlightedWord && targetWordIndex < wordsArray.length && targetWordIndex >= 0) {
+        console.log('Highlighting word', targetWordIndex, ':', wordsArray[targetWordIndex])
+        
         // Remove previous highlight
         if (currentHighlightedWord !== null) {
           removeWordHighlight(currentHighlightedWord)
@@ -546,9 +568,10 @@ function AppPageContent() {
         setCurrentHighlightedWord(targetWordIndex)
         addWordHighlight(targetWordIndex)
       }
-    }, 50) // Update every 50ms for smooth highlighting
+    }, 100) // Increased to 100ms for better debugging
     
     setHighlightInterval(interval)
+    console.log('Highlighting interval started')
   }
 
   return (
