@@ -10,6 +10,7 @@ const connectDB = require('./src/config/database');
 // Import routes
 const subscriptionRoutes = require('./src/routes/subscriptions');
 const authRoutes = require('./src/routes/auth');
+const lessonRoutes = require('./src/routes/lessons');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -61,6 +62,7 @@ app.get('/api/debug', (req, res) => {
 // Mount routes
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/lessons', lessonRoutes);
 
 // Temporary auth fallback for testing (remove after real auth is fixed)
 app.post('/api/auth/register-temp', async (req, res) => {
