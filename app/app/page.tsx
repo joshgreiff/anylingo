@@ -11,6 +11,7 @@ function AppPageContent() {
   const [message, setMessage] = useState('')
   const [currentDrill, setCurrentDrill] = useState<string | null>(null)
   const [currentLesson, setCurrentLesson] = useState<any>(null)
+  const [editingLesson, setEditingLesson] = useState<any>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -180,6 +181,63 @@ function AppPageContent() {
     localStorage.setItem('currentLesson', JSON.stringify(lesson))
     setMessage(`Active lesson set to: ${lesson.title}`)
     setTimeout(() => setMessage(''), 3000)
+  }
+
+  const startEditingLesson = (lesson: any) => {
+    setEditingLesson(lesson)
+  }
+
+  const cancelEditingLesson = () => {
+    setEditingLesson(null)
+  }
+
+  const updateLesson = async () => {
+    if (!editingLesson) return
+
+    setLoading(true)
+    try {
+      const token = localStorage.getItem('anylingo_token')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://anylingo-production.up.railway.app'}/api/lessons/${editingLesson._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: editingLesson.title,
+          content: {
+            original: editingLesson.content?.original || editingLesson.content
+          },
+          languages: editingLesson.languages || {
+            source: 'en',
+            target: editingLesson.targetLanguage || 'es'
+          },
+          category: editingLesson.category || 'other',
+          difficulty: editingLesson.difficulty || 'beginner'
+        })
+      })
+
+      if (response.ok) {
+        setMessage('Lesson updated successfully!')
+        setEditingLesson(null)
+        // Update current lesson if it was being edited
+        if (currentLesson?._id === editingLesson._id) {
+          setCurrentLesson(editingLesson)
+          localStorage.setItem('currentLesson', JSON.stringify(editingLesson))
+        }
+        // Reload lessons
+        loadLessons()
+        setTimeout(() => setMessage(''), 3000)
+      } else {
+        setMessage('Failed to update lesson')
+        setTimeout(() => setMessage(''), 3000)
+      }
+    } catch (error) {
+      console.error('Error updating lesson:', error)
+      setMessage('Error updating lesson')
+      setTimeout(() => setMessage(''), 3000)
+    }
+    setLoading(false)
   }
 
   return (
@@ -383,41 +441,91 @@ function AppPageContent() {
               ) : (
                 lessons.map((lesson: any) => (
                   <div key={lesson._id} className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${currentLesson?._id === lesson._id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-lg font-semibold text-gray-900">{lesson.title}</h3>
-                          {currentLesson?._id === lesson._id && (
-                            <span className="px-2 py-1 text-xs bg-blue-600 text-white rounded-full">Active</span>
-                          )}
+                    {editingLesson?._id === lesson._id ? (
+                      // Editing mode
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                          <input
+                            type="text"
+                            value={editingLesson.title}
+                            onChange={(e) => setEditingLesson({...editingLesson, title: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
                         </div>
-                        <p className="text-gray-600 text-sm mt-1">
-                          {(lesson.content?.original || lesson.content)?.substring(0, 100)}...
-                        </p>
-                        <p className="text-xs text-gray-500 mt-2">
-                          Language: {(lesson.languages?.target || lesson.targetLanguage)?.toUpperCase()} • Created: {new Date(lesson.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex space-x-2">
-                        {currentLesson?._id !== lesson._id && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                          <textarea
+                            rows={6}
+                            value={editingLesson.content?.original || editingLesson.content}
+                            onChange={(e) => setEditingLesson({
+                              ...editingLesson, 
+                              content: editingLesson.content?.original ? 
+                                {...editingLesson.content, original: e.target.value} : 
+                                e.target.value
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div className="flex justify-end space-x-2">
                           <button 
-                            onClick={() => setActiveLesson(lesson)}
-                            className="px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700"
+                            onClick={cancelEditingLesson}
+                            className="px-4 py-2 text-sm bg-gray-500 text-white rounded hover:bg-gray-600"
                           >
-                            Set Active
+                            Cancel
                           </button>
-                        )}
-                        <button className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">View</button>
-                        <button className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700">Edit</button>
-                        <button 
-                          onClick={() => deleteLesson(lesson._id, lesson.title)}
-                          disabled={loading}
-                          className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
-                        >
-                          Delete
-                        </button>
+                          <button 
+                            onClick={updateLesson}
+                            disabled={loading}
+                            className="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                          >
+                            Save Changes
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      // Display mode
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-semibold text-gray-900">{lesson.title}</h3>
+                            {currentLesson?._id === lesson._id && (
+                              <span className="px-2 py-1 text-xs bg-blue-600 text-white rounded-full">Active</span>
+                            )}
+                          </div>
+                          <p className="text-gray-600 text-sm mt-1">
+                            {(lesson.content?.original || lesson.content)?.substring(0, 100)}...
+                          </p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            Language: {(lesson.languages?.target || lesson.targetLanguage)?.toUpperCase()} • Created: {new Date(lesson.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex space-x-2">
+                          {currentLesson?._id !== lesson._id && (
+                            <button 
+                              onClick={() => setActiveLesson(lesson)}
+                              className="px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700"
+                            >
+                              Set Active
+                            </button>
+                          )}
+                          <button className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">View</button>
+                          <button 
+                            onClick={() => startEditingLesson(lesson)}
+                            className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            onClick={() => deleteLesson(lesson._id, lesson.title)}
+                            disabled={loading}
+                            className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
