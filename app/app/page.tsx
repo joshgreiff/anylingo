@@ -572,13 +572,13 @@ function AppPageContent() {
       }
       
       // Calculate word position based on speech progress
-      const elapsedTime = Date.now() - speechStartTime
+      const elapsedTime = Date.now() - startTime
       const timingFactor = 1.6 // Speed up factor for highlighting
       const adjustedElapsedTime = elapsedTime * timingFactor
       const progress = adjustedElapsedTime / (duration * 1000)
       const targetWordIndex = Math.floor(progress * wordsArray.length)
       
-      console.log('Progress:', progress.toFixed(3), 'Target word:', targetWordIndex, 'Current:', currentHighlightedWord)
+      console.log('Elapsed:', elapsedTime, 'Duration:', duration * 1000, 'Progress:', progress.toFixed(3), 'Target word:', targetWordIndex, '/', wordsArray.length, 'Current:', currentHighlightedWord)
       
       if (targetWordIndex !== currentHighlightedWord && targetWordIndex < wordsArray.length && targetWordIndex >= 0) {
         console.log('Highlighting word', targetWordIndex, ':', wordsArray[targetWordIndex])
