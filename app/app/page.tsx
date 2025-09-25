@@ -398,6 +398,7 @@ function AppPageContent() {
     }
     
     newUtterance.onpause = () => {
+      console.log('Speech paused - clearing highlights')
       setIsPlaying(false)
       setIsPaused(true)
       clearWordHighlights()
@@ -463,6 +464,19 @@ function AppPageContent() {
     }
   }
 
+  const clearVisualHighlights = () => {
+    console.log('Clearing visual highlights only')
+    setCurrentHighlightedWord(null)
+    
+    // Restore original content
+    if (currentLesson) {
+      const contentElement = document.getElementById('readAloudContent')
+      if (contentElement) {
+        contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${currentLesson.content?.original || currentLesson.content}</pre>`
+      }
+    }
+  }
+
   const addWordHighlight = (wordIndex: number) => {
     console.log('Adding highlight to word', wordIndex)
     const contentElement = document.getElementById('readAloudContent')
@@ -509,8 +523,8 @@ function AppPageContent() {
       return
     }
     
-    // Clear any existing highlights
-    clearWordHighlights()
+    // Clear any existing visual highlights (but keep interval running if needed)
+    clearVisualHighlights()
     
     const content = currentLesson.content?.original || currentLesson.content
     const wordsArray = content.split(/\s+/)
