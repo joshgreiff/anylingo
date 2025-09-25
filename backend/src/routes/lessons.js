@@ -1,6 +1,7 @@
 const express = require('express');
 const auth = require('../middleware/auth');
 const Lesson = require('../models/Lesson');
+const User = require('../models/User');
 const router = express.Router();
 
 // Get all lessons for user
