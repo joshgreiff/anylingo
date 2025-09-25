@@ -17,6 +17,12 @@ function AppPageContent() {
   const [isLooping, setIsLooping] = useState(false)
   const [speechRate, setSpeechRate] = useState(1.0)
   const [utterance, setUtterance] = useState<SpeechSynthesisUtterance | null>(null)
+  const [currentHighlightedWord, setCurrentHighlightedWord] = useState<number | null>(null)
+  const [highlightInterval, setHighlightInterval] = useState<NodeJS.Timeout | null>(null)
+  const [words, setWords] = useState<string[]>([])
+  const [wordBoundaries, setWordBoundaries] = useState<any[]>([])
+  const [speechStartTime, setSpeechStartTime] = useState(0)
+  const [estimatedDuration, setEstimatedDuration] = useState(0)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -377,11 +383,13 @@ function AppPageContent() {
     newUtterance.onstart = () => {
       setIsPlaying(true)
       setIsPaused(false)
+      startWordHighlighting()
     }
     
     newUtterance.onend = () => {
       setIsPlaying(false)
       setIsPaused(false)
+      clearWordHighlights()
       if (isLooping) {
         setTimeout(() => startReading(), 1000)
       }
@@ -390,11 +398,13 @@ function AppPageContent() {
     newUtterance.onpause = () => {
       setIsPlaying(false)
       setIsPaused(true)
+      clearWordHighlights()
     }
     
     newUtterance.onresume = () => {
       setIsPlaying(true)
       setIsPaused(false)
+      startWordHighlighting()
     }
     
     setUtterance(newUtterance)
@@ -422,6 +432,7 @@ function AppPageContent() {
       window.speechSynthesis.cancel()
       setIsPlaying(false)
       setIsPaused(false)
+      clearWordHighlights()
     }
   }
 
@@ -429,6 +440,115 @@ function AppPageContent() {
     setIsLooping(!isLooping)
     setMessage(`Loop ${!isLooping ? 'enabled' : 'disabled'}`)
     setTimeout(() => setMessage(''), 2000)
+  }
+
+  const clearWordHighlights = () => {
+    if (highlightInterval) {
+      clearInterval(highlightInterval)
+      setHighlightInterval(null)
+    }
+    
+    setCurrentHighlightedWord(null)
+    setWordBoundaries([])
+    
+    // Restore original content
+    if (currentLesson) {
+      const contentElement = document.getElementById('readAloudContent')
+      if (contentElement) {
+        contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${currentLesson.content?.original || currentLesson.content}</pre>`
+      }
+    }
+  }
+
+  const addWordHighlight = (wordIndex: number) => {
+    const contentElement = document.getElementById('readAloudContent')
+    if (!contentElement || wordIndex >= wordBoundaries.length) return
+    
+    const boundary = wordBoundaries[wordIndex]
+    const content = currentLesson.content?.original || currentLesson.content
+    
+    // Create highlighted version
+    const before = content.substring(0, boundary.start)
+    const word = content.substring(boundary.start, boundary.end)
+    const after = content.substring(boundary.end)
+    
+    contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${before}<span class="bg-green-300 text-green-800 px-1 rounded">${word}</span>${after}</pre>`
+  }
+
+  const removeWordHighlight = (wordIndex: number) => {
+    const contentElement = document.getElementById('readAloudContent')
+    if (!contentElement || wordIndex >= wordBoundaries.length) return
+    
+    const boundary = wordBoundaries[wordIndex]
+    const content = currentLesson.content?.original || currentLesson.content
+    
+    // Remove highlight by restoring original text
+    const before = content.substring(0, boundary.start)
+    const word = content.substring(boundary.start, boundary.end)
+    const after = content.substring(boundary.end)
+    
+    contentElement.innerHTML = `<pre class="whitespace-pre-wrap">${before}${word}${after}</pre>`
+  }
+
+  const startWordHighlighting = () => {
+    if (!currentLesson || !isPlaying) return
+    
+    // Clear any existing highlights
+    clearWordHighlights()
+    
+    const content = currentLesson.content?.original || currentLesson.content
+    const wordsArray = content.split(/\s+/)
+    setWords(wordsArray)
+    
+    // Create word boundaries for highlighting
+    const boundaries: any[] = []
+    let currentPos = 0
+    wordsArray.forEach((word, index) => {
+      const wordStart = content.indexOf(word, currentPos)
+      const wordEnd = wordStart + word.length
+      boundaries.push({
+        word: word,
+        start: wordStart,
+        end: wordEnd,
+        index: index
+      })
+      currentPos = wordEnd
+    })
+    setWordBoundaries(boundaries)
+    
+    // Calculate estimated duration
+    const wordsPerMinute = 120 * speechRate
+    const duration = (wordsArray.length / wordsPerMinute) * 60
+    setEstimatedDuration(duration)
+    setSpeechStartTime(Date.now())
+    
+    // Start highlighting words based on speech timing
+    const interval = setInterval(() => {
+      if (!isPlaying) {
+        clearWordHighlights()
+        return
+      }
+      
+      // Calculate word position based on speech progress
+      const elapsedTime = Date.now() - speechStartTime
+      const timingFactor = 1.6 // Speed up factor for highlighting
+      const adjustedElapsedTime = elapsedTime * timingFactor
+      const progress = adjustedElapsedTime / (duration * 1000)
+      const targetWordIndex = Math.floor(progress * wordsArray.length)
+      
+      if (targetWordIndex !== currentHighlightedWord && targetWordIndex < wordsArray.length) {
+        // Remove previous highlight
+        if (currentHighlightedWord !== null) {
+          removeWordHighlight(currentHighlightedWord)
+        }
+        
+        // Add new highlight
+        setCurrentHighlightedWord(targetWordIndex)
+        addWordHighlight(targetWordIndex)
+      }
+    }, 50) // Update every 50ms for smooth highlighting
+    
+    setHighlightInterval(interval)
   }
 
   return (
@@ -745,7 +865,7 @@ function AppPageContent() {
                 
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="font-semibold mb-3">Lesson Text:</h3>
-                  <div className="text-lg leading-relaxed mb-4 max-h-64 overflow-y-auto">
+                  <div id="readAloudContent" className="text-lg leading-relaxed mb-4 max-h-64 overflow-y-auto">
                     <pre className="whitespace-pre-wrap">{currentLesson.content?.original || currentLesson.content}</pre>
                   </div>
                   
