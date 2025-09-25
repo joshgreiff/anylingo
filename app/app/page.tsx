@@ -6,9 +6,10 @@ import AccountManagement from '../components/AccountManagement'
 
 function AppPageContent() {
   const [currentView, setCurrentView] = useState('home')
-  const [lessons, setLessons] = useState([])
+  const [lessons, setLessons] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [currentDrill, setCurrentDrill] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -476,43 +477,187 @@ function AppPageContent() {
           <section id="drills" className={`max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md ${currentView === 'drills' ? 'block' : 'hidden'}`}>
             <h2 className="text-2xl font-bold mb-6">Drill Exercises</h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <a href="https://anylingo01.manus.space/" target="_blank" className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow block">
-                <h3 className="text-lg font-semibold mb-2">Drill 1</h3>
-                <p className="text-gray-600 text-sm mb-3">Basic vocabulary practice</p>
-                <div className="text-blue-600 hover:text-blue-800 text-sm font-medium">Start Drill →</div>
+            {/* Drill Selection Buttons */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              <button 
+                onClick={() => setCurrentDrill('drill1')}
+                className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${currentDrill === 'drill1' ? 'bg-blue-50 border-blue-500' : 'border-gray-200'}`}
+              >
+                <h3 className="text-lg font-semibold mb-2">Drill 1: Listen and Follow</h3>
+                <p className="text-gray-600 text-sm">Listen to the lesson being read aloud and follow along with the text</p>
+              </button>
+              
+              <button 
+                onClick={() => setCurrentDrill('drill2')}
+                className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${currentDrill === 'drill2' ? 'bg-blue-50 border-blue-500' : 'border-gray-200'}`}
+              >
+                <h3 className="text-lg font-semibold mb-2">Drill 2: Highlight and Translate</h3>
+                <p className="text-gray-600 text-sm">Highlight words or phrases you don't understand, then translate them</p>
+              </button>
+              
+              <a 
+                href="https://anylingo03.manus.space/" 
+                target="_blank" 
+                className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow block"
+              >
+                <h3 className="text-lg font-semibold mb-2">Drill 3: Listening Comprehension</h3>
+                <p className="text-gray-600 text-sm mb-3">Advanced listening exercises</p>
+                <div className="text-blue-600 hover:text-blue-800 text-sm font-medium">Open External Tool →</div>
               </a>
               
-              <a href="https://anylingo02.manus.space/" target="_blank" className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow block">
-                <h3 className="text-lg font-semibold mb-2">Drill 2</h3>
-                <p className="text-gray-600 text-sm mb-3">Sentence construction</p>
-                <div className="text-blue-600 hover:text-blue-800 text-sm font-medium">Start Drill →</div>
-              </a>
+              <button 
+                onClick={() => setCurrentDrill('drill4')}
+                className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${currentDrill === 'drill4' ? 'bg-blue-50 border-blue-500' : 'border-gray-200'}`}
+              >
+                <h3 className="text-lg font-semibold mb-2">Drill 4: Record and Compare</h3>
+                <p className="text-gray-600 text-sm">Record yourself reading the lesson and compare with the original</p>
+              </button>
               
-              <a href="https://anylingo03.manus.space/" target="_blank" className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow block">
-                <h3 className="text-lg font-semibold mb-2">Drill 3</h3>
-                <p className="text-gray-600 text-sm mb-3">Listening comprehension</p>
-                <div className="text-blue-600 hover:text-blue-800 text-sm font-medium">Start Drill →</div>
-              </a>
-              
-              <a href="https://anylingo04.manus.space/" target="_blank" className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow block">
-                <h3 className="text-lg font-semibold mb-2">Drill 4</h3>
-                <p className="text-gray-600 text-sm mb-3">Grammar exercises</p>
-                <div className="text-blue-600 hover:text-blue-800 text-sm font-medium">Start Drill →</div>
-              </a>
-              
-              <a href="https://anylingo05.manus.space/" target="_blank" className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow block">
-                <h3 className="text-lg font-semibold mb-2">Drill 5</h3>
-                <p className="text-gray-600 text-sm mb-3">Conversation practice</p>
-                <div className="text-blue-600 hover:text-blue-800 text-sm font-medium">Start Drill →</div>
-              </a>
-              
-              <a href="https://anylingo06.manus.space/" target="_blank" className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow block">
-                <h3 className="text-lg font-semibold mb-2">Drill 6</h3>
-                <p className="text-gray-600 text-sm mb-3">Advanced exercises</p>
-                <div className="text-blue-600 hover:text-blue-800 text-sm font-medium">Start Drill →</div>
-              </a>
+              <button 
+                onClick={() => setCurrentDrill('drill5')}
+                className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${currentDrill === 'drill5' ? 'bg-blue-50 border-blue-500' : 'border-gray-200'}`}
+              >
+                <h3 className="text-lg font-semibold mb-2">Drill 5: Develop Fluency</h3>
+                <p className="text-gray-600 text-sm">Develop fluency using the fluency measurement tool</p>
+              </button>
             </div>
+
+            {/* Drill 1: Listen and Follow */}
+            {currentDrill === 'drill1' && (
+              <div className="space-y-4">
+                <p className="text-gray-700">Listen to the lesson being read aloud and follow along with the text. This helps with comprehension and pronunciation.</p>
+                
+                <div className="flex space-x-4">
+                  <button className="px-6 py-3 bg-purple-600 text-white rounded-md shadow hover:bg-purple-700 transition-colors">
+                    Start
+                  </button>
+                  <button className="px-6 py-3 bg-green-600 text-white rounded-md shadow hover:bg-green-700 transition-colors" disabled>
+                    Pause
+                  </button>
+                  <button className="px-6 py-3 bg-green-600 text-white rounded-md shadow hover:bg-green-700 transition-colors" disabled>
+                    Continue
+                  </button>
+                  <button className="px-6 py-3 bg-red-600 text-white rounded-md shadow hover:bg-red-700 transition-colors" disabled>
+                    Stop
+                  </button>
+                </div>
+                
+                <div className="border p-4 rounded-md bg-gray-50 h-96 overflow-y-auto">
+                  {lessons.length > 0 ? (
+                    <pre className="whitespace-pre-wrap">{lessons[0].content?.original || lessons[0].content}</pre>
+                  ) : (
+                    <p className="text-gray-500 text-center">Select a lesson to practice with Drill 1</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Drill 2: Highlight and Translate */}
+            {currentDrill === 'drill2' && (
+              <div className="space-y-4">
+                <p className="text-gray-700">Highlight words or phrases you don't understand, then translate them.</p>
+                
+                <div className="flex space-x-4">
+                  <button className="px-6 py-3 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 transition-colors">
+                    Enable Highlighting
+                  </button>
+                  <button className="px-6 py-3 bg-gray-600 text-white rounded-md shadow hover:bg-gray-700 transition-colors">
+                    Clear Highlights
+                  </button>
+                </div>
+                
+                <div className="border p-4 rounded-md bg-gray-50 h-96 overflow-y-auto cursor-text">
+                  {lessons.length > 0 ? (
+                    <div className="whitespace-pre-wrap">{lessons[0].content?.original || lessons[0].content}</div>
+                  ) : (
+                    <p className="text-gray-500 text-center">Select a lesson to practice with Drill 2</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Drill 4: Record and Compare */}
+            {currentDrill === 'drill4' && (
+              <div className="space-y-4">
+                <p className="text-gray-700">Record yourself reading the lesson and compare with the original.</p>
+                
+                <div className="flex space-x-4">
+                  <button className="px-6 py-3 bg-red-600 text-white rounded-md shadow hover:bg-red-700 transition-colors">
+                    Start Recording
+                  </button>
+                  <button className="px-6 py-3 bg-gray-600 text-white rounded-md shadow hover:bg-gray-700 transition-colors" disabled>
+                    Stop Recording
+                  </button>
+                  <button className="px-6 py-3 bg-green-600 text-white rounded-md shadow hover:bg-green-700 transition-colors" disabled>
+                    Play Recording
+                  </button>
+                  <button className="px-6 py-3 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 transition-colors" disabled>
+                    Save Recording
+                  </button>
+                </div>
+                
+                <div className="border p-4 rounded-md bg-gray-50 h-96 overflow-y-auto">
+                  {lessons.length > 0 ? (
+                    <pre className="whitespace-pre-wrap">{lessons[0].content?.original || lessons[0].content}</pre>
+                  ) : (
+                    <p className="text-gray-500 text-center">Select a lesson to practice with Drill 4</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Drill 5: Develop Fluency */}
+            {currentDrill === 'drill5' && (
+              <div className="space-y-4">
+                <p className="text-gray-700">Develop fluency and measure it quantitatively using the fluency measurement tool.</p>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Custom Lesson Text</label>
+                    <textarea 
+                      rows={8} 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      defaultValue={lessons.length > 0 ? (lessons[0].content?.original || lessons[0].content) : ''}
+                      placeholder="Enter text for fluency practice..."
+                    />
+                  </div>
+                  
+                  <div className="flex space-x-4">
+                    <button className="px-6 py-3 bg-green-600 text-white rounded-md shadow hover:bg-green-700 transition-colors">
+                      Start Fluency Test
+                    </button>
+                    <button className="px-6 py-3 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 transition-colors">
+                      Calculate WPM
+                    </button>
+                  </div>
+                  
+                  <div className="bg-blue-50 p-4 rounded-md">
+                    <h4 className="font-semibold mb-2">Fluency Metrics</h4>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600">Words per minute:</span>
+                        <div className="font-semibold">-- WPM</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Accuracy:</span>
+                        <div className="font-semibold">--%</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Fluency Score:</span>
+                        <div className="font-semibold">--/100</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Default state */}
+            {!currentDrill && (
+              <div className="text-center py-8 text-gray-500">
+                <p>Select a drill exercise above to get started</p>
+              </div>
+            )}
           </section>
 
           {/* Record Section */}
