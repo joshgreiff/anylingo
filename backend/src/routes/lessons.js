@@ -87,7 +87,15 @@ router.post('/', auth, async (req, res) => {
         });
     } catch (error) {
         console.error('Create lesson error:', error);
-        res.status(500).json({ error: 'Failed to create lesson' });
+        console.error('Error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+        });
+        res.status(500).json({ 
+            error: 'Failed to create lesson',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 });
 

@@ -30,6 +30,11 @@ const auth = async (req, res, next) => {
 
     } catch (error) {
         console.error('Auth middleware error:', error);
+        console.error('Auth error details:', {
+            name: error.name,
+            message: error.message,
+            token: token ? 'Present' : 'Missing'
+        });
         
         if (error.name === 'JsonWebTokenError') {
             return res.status(401).json({ error: 'Token is not valid' });
