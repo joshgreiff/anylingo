@@ -558,19 +558,27 @@ function AppPageContent() {
     
     // Start highlighting words based on speech timing
     const interval = setInterval(() => {
-      // Check if speech is still active
-      if (!window.speechSynthesis.speaking) {
-        console.log('Stopping highlighting - speech not active')
+      // Check if speech is still active (but be less strict about paused state)
+      if (!window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+        console.log('Stopping highlighting - speech not active and not paused')
         clearInterval(interval)
         return
       }
       
-              // Calculate word position based on speech progress
-        const elapsedTime = Date.now() - speechStartTime
+      // Continue highlighting even if paused (for testing)
+      if (!window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+        console.log('Speech not active at all, skipping highlight update')
+        return
+      }
+      
+      // Calculate word position based on speech progress
+      const elapsedTime = Date.now() - speechStartTime
       const timingFactor = 1.6 // Speed up factor for highlighting
       const adjustedElapsedTime = elapsedTime * timingFactor
       const progress = adjustedElapsedTime / (duration * 1000)
       const targetWordIndex = Math.floor(progress * wordsArray.length)
+      
+      console.log('Progress:', progress.toFixed(3), 'Target word:', targetWordIndex, 'Current:', currentHighlightedWord)
       
       if (targetWordIndex !== currentHighlightedWord && targetWordIndex < wordsArray.length && targetWordIndex >= 0) {
         console.log('Highlighting word', targetWordIndex, ':', wordsArray[targetWordIndex])
@@ -588,6 +596,12 @@ function AppPageContent() {
     
     setHighlightInterval(interval)
     console.log('Highlighting interval started')
+    
+    // Test highlighting immediately
+    setTimeout(() => {
+      console.log('Testing manual highlight of first word')
+      addWordHighlight(0)
+    }, 500)
   }
 
   return (
@@ -942,6 +956,25 @@ function AppPageContent() {
                       className={`px-4 py-2 text-white rounded hover:opacity-90 ${isLooping ? 'bg-purple-600' : 'bg-gray-600'}`}
                     >
                       🔄 Loop {isLooping ? 'ON' : 'OFF'}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        console.log('Manual highlight test - highlighting word 0')
+                        if (currentLesson) {
+                          addWordHighlight(0)
+                          setTimeout(() => {
+                            console.log('Manual highlight test - highlighting word 1')
+                            addWordHighlight(1)
+                          }, 1000)
+                          setTimeout(() => {
+                            console.log('Manual highlight test - highlighting word 2')
+                            addWordHighlight(2)
+                          }, 2000)
+                        }
+                      }}
+                      className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+                    >
+                      🔍 Test Highlight
                     </button>
                   </div>
                   
