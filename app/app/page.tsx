@@ -503,7 +503,7 @@ function AppPageContent() {
     // Create word boundaries for highlighting
     const boundaries: any[] = []
     let currentPos = 0
-    wordsArray.forEach((word, index) => {
+    wordsArray.forEach((word: string, index: number) => {
       const wordStart = content.indexOf(word, currentPos)
       const wordEnd = wordStart + word.length
       boundaries.push({
