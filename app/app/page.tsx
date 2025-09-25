@@ -384,11 +384,11 @@ function AppPageContent() {
       console.log('Speech started - setting up highlighting')
       setIsPlaying(true)
       setIsPaused(false)
-      // Small delay to ensure state is updated
-      setTimeout(() => startWordHighlighting(), 100)
+      startWordHighlighting()
     }
     
     newUtterance.onend = () => {
+      console.log('Speech ended - clearing highlights')
       setIsPlaying(false)
       setIsPaused(false)
       clearWordHighlights()
@@ -445,6 +445,7 @@ function AppPageContent() {
   }
 
   const clearWordHighlights = () => {
+    console.log('Clearing word highlights')
     if (highlightInterval) {
       clearInterval(highlightInterval)
       setHighlightInterval(null)
@@ -503,8 +504,8 @@ function AppPageContent() {
 
   const startWordHighlighting = () => {
     console.log('Starting word highlighting...')
-    if (!currentLesson || !isPlaying) {
-      console.log('Cannot start highlighting: currentLesson =', !!currentLesson, 'isPlaying =', isPlaying)
+    if (!currentLesson) {
+      console.log('Cannot start highlighting: no currentLesson')
       return
     }
     
@@ -543,9 +544,10 @@ function AppPageContent() {
     
     // Start highlighting words based on speech timing
     const interval = setInterval(() => {
-      if (!isPlaying) {
-        console.log('Stopping highlighting - not playing')
-        clearWordHighlights()
+      // Check if speech is still active
+      if (!window.speechSynthesis.speaking) {
+        console.log('Stopping highlighting - speech not active')
+        clearInterval(interval)
         return
       }
       
