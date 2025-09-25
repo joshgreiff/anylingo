@@ -240,6 +240,119 @@ function AppPageContent() {
     setLoading(false)
   }
 
+  const translateText = async (text: string, sourceLang: string, targetLang: string) => {
+    try {
+      // Use free Google Translate service (no API key required)
+      const fallbackUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang === 'auto' ? 'auto' : sourceLang}&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`
+      
+      const response = await fetch(fallbackUrl)
+      
+      if (response.ok) {
+        const data = await response.json()
+        
+        // Check if we got a valid translation
+        if (data && data[0] && data[0][0] && data[0][0][0]) {
+          return data[0][0][0]
+        } else {
+          throw new Error('Incomplete translation response')
+        }
+      } else {
+        throw new Error(`Translation failed: ${response.status}`)
+      }
+    } catch (error) {
+      // Try alternative free translation service
+      try {
+        const alternativeUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLang === 'auto' ? 'auto' : sourceLang}|${targetLang}`
+        
+        const altResponse = await fetch(alternativeUrl)
+        
+        if (altResponse.ok) {
+          const altData = await altResponse.json()
+          
+          if (altData && altData.responseData && altData.responseData.translatedText) {
+            return altData.responseData.translatedText
+          } else {
+            throw new Error('Incomplete translation response')
+          }
+        }
+      } catch (altError) {
+        console.error('Alternative translation error:', altError)
+      }
+      
+      throw new Error('Translation service unavailable. Please try again later.')
+    }
+  }
+
+  const translateContent = async () => {
+    if (!currentLesson) {
+      setMessage('No active lesson to translate')
+      setTimeout(() => setMessage(''), 3000)
+      return
+    }
+
+    const sourceLanguage = (document.getElementById('sourceLanguage') as HTMLSelectElement)?.value
+    const targetLanguage = (document.getElementById('targetLanguage') as HTMLSelectElement)?.value
+    const translationMode = (document.querySelector('input[name="translationMode"]:checked') as HTMLInputElement)?.value
+    const originalTextElement = document.getElementById('originalText') as HTMLTextAreaElement
+    const translatedTextElement = document.getElementById('translatedText') as HTMLDivElement
+
+    if (targetLanguage === 'auto') {
+      setMessage('Please select a target language.')
+      setTimeout(() => setMessage(''), 3000)
+      return
+    }
+
+    setLoading(true)
+    translatedTextElement.innerHTML = '<p class="text-center text-gray-500">Translating...</p>'
+
+    try {
+      const textToTranslate = originalTextElement.value || (currentLesson.content?.original || currentLesson.content)
+      
+      if (translationMode === 'sentence') {
+        // Split into sentences and translate each
+        const sentences = textToTranslate
+          .split(/(?<=[.!?])\s+/)
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0)
+        
+        let translatedHtml = ''
+        
+        for (const sentence of sentences) {
+          const translated = await translateText(sentence, sourceLanguage, targetLanguage)
+          translatedHtml += `<p class="mb-2"><strong>Original:</strong> ${sentence}</p><p class="mb-4 text-blue-700"><strong>Translation:</strong> ${translated}</p>`
+        }
+        
+        translatedTextElement.innerHTML = translatedHtml
+      } else if (translationMode === 'paragraph') {
+        // Split into paragraphs and translate each
+        const paragraphs = textToTranslate.split(/\n\s*\n/).filter((p: string) => p.trim())
+        
+        let translatedHtml = ''
+        
+        for (const paragraph of paragraphs) {
+          const translated = await translateText(paragraph.trim(), sourceLanguage, targetLanguage)
+          translatedHtml += `<div class="mb-4"><p class="mb-2"><strong>Original:</strong></p><p class="mb-2">${paragraph}</p><p class="mb-2 text-blue-700"><strong>Translation:</strong></p><p class="text-blue-700">${translated}</p></div>`
+        }
+        
+        translatedTextElement.innerHTML = translatedHtml
+      } else {
+        // Full text translation
+        const translated = await translateText(textToTranslate, sourceLanguage, targetLanguage)
+        translatedTextElement.innerHTML = `<p>${translated}</p>`
+      }
+      
+      setMessage('Translation completed successfully!')
+      setTimeout(() => setMessage(''), 3000)
+    } catch (error) {
+      console.error('Translation error:', error)
+      translatedTextElement.innerHTML = '<p class="text-red-500 text-center">Translation failed. Please try again.</p>'
+      setMessage('Translation failed. Please try again.')
+      setTimeout(() => setMessage(''), 3000)
+    }
+    
+    setLoading(false)
+  }
+
   return (
     <>
       <div className="bg-gray-50 min-h-screen">
@@ -599,30 +712,72 @@ function AppPageContent() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">From Language</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-md">
+                    <select 
+                      id="sourceLanguage"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="auto">Auto-detect</option>
                       <option value="en">English</option>
                       <option value="es">Spanish</option>
                       <option value="fr">French</option>
                       <option value="de">German</option>
+                      <option value="it">Italian</option>
+                      <option value="pt">Portuguese</option>
+                      <option value="ru">Russian</option>
+                      <option value="zh">Chinese</option>
+                      <option value="ja">Japanese</option>
+                      <option value="ko">Korean</option>
+                      <option value="ar">Arabic</option>
+                      <option value="hi">Hindi</option>
                       <option value="fi">Finnish</option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">To Language</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-md">
+                    <select 
+                      id="targetLanguage"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
                       <option value="en">English</option>
                       <option value="es">Spanish</option>
                       <option value="fr">French</option>
                       <option value="de">German</option>
+                      <option value="it">Italian</option>
+                      <option value="pt">Portuguese</option>
+                      <option value="ru">Russian</option>
+                      <option value="zh">Chinese</option>
+                      <option value="ja">Japanese</option>
+                      <option value="ko">Korean</option>
+                      <option value="ar">Arabic</option>
+                      <option value="hi">Hindi</option>
                       <option value="fi">Finnish</option>
                     </select>
                   </div>
                 </div>
                 
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Translation Mode</label>
+                  <div className="flex space-x-4">
+                    <label className="inline-flex items-center">
+                      <input type="radio" name="translationMode" value="sentence" defaultChecked className="mr-2" />
+                      Sentence by Sentence
+                    </label>
+                    <label className="inline-flex items-center">
+                      <input type="radio" name="translationMode" value="paragraph" className="mr-2" />
+                      Paragraph by Paragraph
+                    </label>
+                    <label className="inline-flex items-center">
+                      <input type="radio" name="translationMode" value="full" className="mr-2" />
+                      Full Text
+                    </label>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Original Text</label>
                     <textarea 
+                      id="originalText"
                       rows={8} 
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       defaultValue={currentLesson.content?.original || currentLesson.content}
@@ -630,17 +785,21 @@ function AppPageContent() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Translation</label>
-                    <textarea 
-                      rows={8} 
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
-                      placeholder="Translation will appear here..."
-                      readOnly
-                    ></textarea>
+                    <div 
+                      id="translatedText" 
+                      className="w-full h-48 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 overflow-y-auto"
+                    >
+                      <p className="text-gray-500 text-center">Translation will appear here...</p>
+                    </div>
                   </div>
                 </div>
                 
-                <button className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                  Translate
+                <button 
+                  onClick={translateContent}
+                  disabled={loading}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Translating...' : 'Translate'}
                 </button>
               </div>
             ) : (
