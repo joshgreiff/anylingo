@@ -79,8 +79,15 @@ function AppPageContent() {
         },
         body: JSON.stringify({
           title,
-          targetLanguage: language,
-          content
+          content: {
+            original: content
+          },
+          languages: {
+            source: 'en',
+            target: language
+          },
+          category: 'other',
+          difficulty: 'beginner'
         })
       })
 
@@ -140,6 +147,23 @@ function AppPageContent() {
     ;(document.getElementById('lessonContent') as HTMLTextAreaElement).value = ''
   }
 
+  const handleLogout = () => {
+    console.log('Logout button clicked!')
+    try {
+      // Clear all localStorage data
+      localStorage.removeItem('anylingo_token')
+      localStorage.removeItem('anylingo_user_data')
+      localStorage.removeItem('anylingo_pending_user')
+      console.log('LocalStorage cleared')
+      
+      // Redirect to signup page
+      console.log('Redirecting to signup...')
+      router.push('/signup')
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+  }
+
   return (
     <>
       <div className="bg-gray-50 min-h-screen">
@@ -195,6 +219,11 @@ function AppPageContent() {
 
               <button 
                 id="logoutBtn" 
+                onClick={() => {
+                  console.log('Logout clicked!')
+                  alert('Logout clicked!')
+                  handleLogout()
+                }}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition-colors"
               >
                 Logout
