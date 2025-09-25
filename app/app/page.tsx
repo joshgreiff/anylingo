@@ -12,6 +12,11 @@ function AppPageContent() {
   const [currentDrill, setCurrentDrill] = useState<string | null>(null)
   const [currentLesson, setCurrentLesson] = useState<any>(null)
   const [editingLesson, setEditingLesson] = useState<any>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
+  const [isLooping, setIsLooping] = useState(false)
+  const [speechRate, setSpeechRate] = useState(1.0)
+  const [utterance, setUtterance] = useState<SpeechSynthesisUtterance | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -353,6 +358,79 @@ function AppPageContent() {
     setLoading(false)
   }
 
+  const startReading = () => {
+    if (!currentLesson || !window.speechSynthesis) {
+      setMessage('Text-to-speech not supported or no active lesson')
+      setTimeout(() => setMessage(''), 3000)
+      return
+    }
+
+    stopReading() // Stop any current reading
+    
+    const synth = window.speechSynthesis
+    const text = currentLesson.content?.original || currentLesson.content
+    const newUtterance = new SpeechSynthesisUtterance(text)
+    
+    // Set speech rate
+    newUtterance.rate = speechRate
+    
+    newUtterance.onstart = () => {
+      setIsPlaying(true)
+      setIsPaused(false)
+    }
+    
+    newUtterance.onend = () => {
+      setIsPlaying(false)
+      setIsPaused(false)
+      if (isLooping) {
+        setTimeout(() => startReading(), 1000)
+      }
+    }
+    
+    newUtterance.onpause = () => {
+      setIsPlaying(false)
+      setIsPaused(true)
+    }
+    
+    newUtterance.onresume = () => {
+      setIsPlaying(true)
+      setIsPaused(false)
+    }
+    
+    setUtterance(newUtterance)
+    synth.speak(newUtterance)
+  }
+
+  const pauseReading = () => {
+    if (window.speechSynthesis && isPlaying) {
+      window.speechSynthesis.pause()
+      setIsPlaying(false)
+      setIsPaused(true)
+    }
+  }
+
+  const continueReading = () => {
+    if (window.speechSynthesis && isPaused) {
+      window.speechSynthesis.resume()
+      setIsPlaying(true)
+      setIsPaused(false)
+    }
+  }
+
+  const stopReading = () => {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel()
+      setIsPlaying(false)
+      setIsPaused(false)
+    }
+  }
+
+  const toggleLoop = () => {
+    setIsLooping(!isLooping)
+    setMessage(`Loop ${!isLooping ? 'enabled' : 'disabled'}`)
+    setTimeout(() => setMessage(''), 2000)
+  }
+
   return (
     <>
       <div className="bg-gray-50 min-h-screen">
@@ -658,44 +736,87 @@ function AppPageContent() {
           <section id="readAloud" className={`max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md ${currentView === 'readAloud' ? 'block' : 'hidden'}`}>
             <h2 className="text-2xl font-bold mb-6">ReadAloud</h2>
             
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select a lesson to read aloud:</label>
-                <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option>Spanish Basics</option>
-                  <option>French Conversation</option>
-                  <option>German Grammar</option>
-                </select>
-              </div>
-              
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-semibold mb-3">Current Text:</h3>
-                <p className="text-lg leading-relaxed mb-4">
-                  Hola, me llamo María. Soy de España y vivo en Madrid. Me gusta mucho viajar y conocer nuevas culturas.
-                </p>
-                
-                <div className="flex space-x-3 mb-4">
-                  <button className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">▶ Play</button>
-                  <button className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700">⏸ Pause</button>
-                  <button className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">⏹ Stop</button>
+            {currentLesson ? (
+              <div className="space-y-6">
+                <div className="bg-blue-50 p-4 rounded-md border border-blue-200">
+                  <h3 className="font-semibold text-blue-900 mb-2">Active Lesson: {currentLesson.title}</h3>
+                  <p className="text-sm text-blue-700">Listen to your active lesson being read aloud</p>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Speech Rate</label>
-                    <input type="range" min="0.5" max="2" step="0.1" defaultValue="1" className="w-full" />
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-semibold mb-3">Lesson Text:</h3>
+                  <div className="text-lg leading-relaxed mb-4 max-h-64 overflow-y-auto">
+                    <pre className="whitespace-pre-wrap">{currentLesson.content?.original || currentLesson.content}</pre>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Voice</label>
-                    <select className="w-full px-2 py-1 border border-gray-300 rounded text-sm">
-                      <option>Spanish (Spain)</option>
-                      <option>Spanish (Mexico)</option>
-                      <option>Spanish (Argentina)</option>
-                    </select>
+                  
+                  <div className="flex space-x-3 mb-4">
+                    <button 
+                      onClick={startReading}
+                      disabled={isPlaying || isPaused}
+                      className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                    >
+                      ▶ {isPlaying ? 'Playing...' : 'Play'}
+                    </button>
+                    <button 
+                      onClick={pauseReading}
+                      disabled={!isPlaying}
+                      className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 disabled:opacity-50"
+                    >
+                      ⏸ Pause
+                    </button>
+                    <button 
+                      onClick={continueReading}
+                      disabled={!isPaused}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      ▶ Continue
+                    </button>
+                    <button 
+                      onClick={stopReading}
+                      disabled={!isPlaying && !isPaused}
+                      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                    >
+                      ⏹ Stop
+                    </button>
+                    <button 
+                      onClick={toggleLoop}
+                      className={`px-4 py-2 text-white rounded hover:opacity-90 ${isLooping ? 'bg-purple-600' : 'bg-gray-600'}`}
+                    >
+                      🔄 Loop {isLooping ? 'ON' : 'OFF'}
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Speech Rate: {speechRate}x</label>
+                      <input 
+                        type="range" 
+                        min="0.5" 
+                        max="2" 
+                        step="0.1" 
+                        value={speechRate}
+                        onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
+                        className="w-full" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Browser Voice</label>
+                      <select className="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                        <option>Default Voice</option>
+                        <option>System Voice 1</option>
+                        <option>System Voice 2</option>
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">Voice selection depends on your browser and system</p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <p className="mb-4">No active lesson selected</p>
+                <p className="text-sm">Go to the Content section and click "Set Active" on a lesson to start reading aloud.</p>
+              </div>
+            )}
           </section>
 
           {/* Translation Section */}
