@@ -96,6 +96,10 @@ const lessonSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    order: {
+        type: Number,
+        default: 0
+    },
     metadata: {
         wordCount: {
             type: Number,
@@ -129,5 +133,6 @@ lessonSchema.pre('save', function(next) {
 lessonSchema.index({ user: 1, createdAt: -1 });
 lessonSchema.index({ user: 1, category: 1 });
 lessonSchema.index({ user: 1, languages: 1 });
+lessonSchema.index({ user: 1, order: 1 });
 
 module.exports = mongoose.model('Lesson', lessonSchema); 

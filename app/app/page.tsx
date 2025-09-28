@@ -23,6 +23,8 @@ function AppPageContent() {
   const [wordBoundaries, setWordBoundaries] = useState<any[]>([])
   const [speechStartTime, setSpeechStartTime] = useState(0)
   const [estimatedDuration, setEstimatedDuration] = useState(0)
+  const [draggedLesson, setDraggedLesson] = useState<any>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -440,6 +442,59 @@ function AppPageContent() {
     setTimeout(() => setMessage(''), 2000)
   }
 
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, lesson: any, index: number) => {
+    setDraggedLesson({ lesson, index })
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverIndex(index)
+  }
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null)
+  }
+
+  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault()
+    setDragOverIndex(null)
+    
+    if (!draggedLesson || draggedLesson.index === dropIndex) {
+      setDraggedLesson(null)
+      return
+    }
+
+    // Reorder lessons array
+    const newLessons = [...lessons]
+    const [movedLesson] = newLessons.splice(draggedLesson.index, 1)
+    newLessons.splice(dropIndex, 0, movedLesson)
+    
+    setLessons(newLessons)
+    setDraggedLesson(null)
+
+    // Save new order to backend
+    try {
+      const token = localStorage.getItem('anylingo_token')
+      const lessonIds = newLessons.map(lesson => lesson._id)
+      
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://anylingo-production.up.railway.app'}/api/lessons/reorder`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ lessonIds })
+      })
+    } catch (error) {
+      console.error('Error saving lesson order:', error)
+      // Revert on error
+      loadLessons()
+    }
+  }
+
   const clearWordHighlights = () => {
     if (highlightInterval) {
       clearInterval(highlightInterval)
@@ -791,7 +846,10 @@ function AppPageContent() {
 
           {/* Content Section */}
           <section id="content" className={`max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md ${currentView === 'content' ? 'block' : 'hidden'}`}>
-            <h2 className="text-2xl font-bold mb-6">My Lessons</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">My Lessons</h2>
+              <p className="text-sm text-gray-500">💡 Drag lessons to reorder them</p>
+            </div>
             
             <div className="space-y-4" id="lessonsList">
               {lessons.length === 0 ? (
@@ -800,8 +858,22 @@ function AppPageContent() {
                   <p className="text-sm mt-2">If you're a new user, default lessons should appear shortly.</p>
                 </div>
               ) : (
-                lessons.map((lesson: any) => (
-                  <div key={lesson._id} className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${currentLesson?._id === lesson._id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                lessons.map((lesson: any, index: number) => (
+                  <div 
+                    key={lesson._id} 
+                    draggable={editingLesson?._id !== lesson._id}
+                    onDragStart={(e) => handleDragStart(e, lesson, index)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, index)}
+                    className={`border rounded-lg p-4 hover:shadow-md transition-shadow cursor-move ${
+                      currentLesson?._id === lesson._id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                    } ${
+                      dragOverIndex === index ? 'border-purple-500 bg-purple-50' : ''
+                    } ${
+                      editingLesson?._id === lesson._id ? 'cursor-default' : ''
+                    }`}
+                  >
                     {editingLesson?._id === lesson._id ? (
                       // Editing mode
                       <div className="space-y-4">
@@ -847,7 +919,11 @@ function AppPageContent() {
                     ) : (
                       // Display mode
                       <div className="flex justify-between items-start">
-                        <div>
+                        <div className="flex items-start gap-3">
+                          <div className="drag-handle mt-1 text-gray-400 hover:text-gray-600 cursor-move">
+                            ⋮⋮
+                          </div>
+                          <div>
                           <div className="flex items-center gap-2">
                             <h3 className="text-lg font-semibold text-gray-900">{lesson.title}</h3>
                             {currentLesson?._id === lesson._id && (

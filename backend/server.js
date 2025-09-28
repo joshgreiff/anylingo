@@ -82,8 +82,8 @@ app.post('/api/auth/register-temp', async (req, res) => {
         
         const user = {
             id: Date.now().toString(),
-            firstName,
-            lastName,
+                firstName,
+                lastName,
             email,
             preferences: preferences || { targetLanguages: ['es'] }
         };
@@ -95,7 +95,7 @@ app.post('/api/auth/register-temp', async (req, res) => {
         );
         
         console.log('Temporary registration successful for:', email);
-        
+
         res.json({
             message: 'User created successfully',
             token,
@@ -108,18 +108,18 @@ app.post('/api/auth/register-temp', async (req, res) => {
 });
 
 // Start server
-const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ AnyLingo API server running on port ${PORT}`);
+        const server = app.listen(PORT, '0.0.0.0', () => {
+            console.log(`✅ AnyLingo API server running on port ${PORT}`);
 console.log('🔧 Server updated with JWT_SECRET and real auth system');
-    console.log(`🔗 Health check: http://0.0.0.0:${PORT}/`);
-    console.log(`🌐 Server is ready for Railway health checks`);
-});
-
-server.on('error', (error) => {
-    console.error('❌ Server error:', error);
-    if (error.code === 'EADDRINUSE') {
-        console.error('Port is already in use');
-    }
-});
-
+            console.log(`🔗 Health check: http://0.0.0.0:${PORT}/`);
+            console.log(`🌐 Server is ready for Railway health checks`);
+        });
+        
+        server.on('error', (error) => {
+            console.error('❌ Server error:', error);
+            if (error.code === 'EADDRINUSE') {
+                console.error('Port is already in use');
+            }
+        });
+        
 module.exports = app;

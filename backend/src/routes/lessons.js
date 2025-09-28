@@ -14,7 +14,7 @@ router.get('/', auth, async (req, res) => {
         if (language) query['languages.target'] = language;
 
         const lessons = await Lesson.find(query)
-            .sort({ createdAt: -1 })
+            .sort({ order: 1, createdAt: -1 })
             .limit(limit * 1)
             .skip((page - 1) * limit)
             .exec();
@@ -269,6 +269,33 @@ router.get('/stats/overview', auth, async (req, res) => {
     } catch (error) {
         console.error('Get lesson stats error:', error);
         res.status(500).json({ error: 'Failed to get lesson statistics' });
+    }
+});
+
+// Reorder lessons
+router.put('/reorder', auth, async (req, res) => {
+    try {
+        const { lessonIds } = req.body;
+
+        if (!lessonIds || !Array.isArray(lessonIds)) {
+            return res.status(400).json({ error: 'Invalid lesson IDs array' });
+        }
+
+        // Update the order field for each lesson
+        const updatePromises = lessonIds.map((lessonId, index) => 
+            Lesson.findOneAndUpdate(
+                { _id: lessonId, user: req.user._id },
+                { order: index },
+                { new: true }
+            )
+        );
+
+        await Promise.all(updatePromises);
+
+        res.json({ message: 'Lesson order updated successfully' });
+    } catch (error) {
+        console.error('Reorder lessons error:', error);
+        res.status(500).json({ error: 'Failed to reorder lessons' });
     }
 });
 
