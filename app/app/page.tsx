@@ -25,6 +25,9 @@ function AppPageContent() {
   const [estimatedDuration, setEstimatedDuration] = useState(0)
   const [draggedLesson, setDraggedLesson] = useState<any>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [sourceLanguage, setSourceLanguage] = useState('auto')
+  const [targetLanguage, setTargetLanguage] = useState('es')
+  const [translationMode, setTranslationMode] = useState('sentence')
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -84,7 +87,7 @@ function AppPageContent() {
 
   const saveLesson = async () => {
     const title = (document.getElementById('lessonTitle') as HTMLInputElement)?.value
-    const language = (document.getElementById('targetLanguage') as HTMLSelectElement)?.value
+    const language = (document.getElementById('createLessonTargetLanguage') as HTMLSelectElement)?.value
     const content = (document.getElementById('lessonContent') as HTMLTextAreaElement)?.value
 
     if (!title || !content) {
@@ -309,9 +312,7 @@ function AppPageContent() {
       return
     }
 
-    const sourceLanguage = (document.getElementById('sourceLanguage') as HTMLSelectElement)?.value
-    const targetLanguage = (document.getElementById('targetLanguage') as HTMLSelectElement)?.value
-    const translationMode = (document.querySelector('input[name="translationMode"]:checked') as HTMLInputElement)?.value
+    // Use state values instead of reading from DOM
     const originalTextElement = document.getElementById('originalText') as HTMLTextAreaElement
     const translatedTextElement = document.getElementById('translatedText') as HTMLDivElement
 
@@ -821,8 +822,8 @@ function AppPageContent() {
               </div>
               
               <div>
-                <label htmlFor="targetLanguage" className="block text-sm font-medium text-gray-700 mb-2">Target Language</label>
-                <select id="targetLanguage" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label htmlFor="createLessonTargetLanguage" className="block text-sm font-medium text-gray-700 mb-2">Target Language</label>
+                <select id="createLessonTargetLanguage" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="es">Spanish</option>
                   <option value="fr">French</option>
                   <option value="de">German</option>
@@ -1084,6 +1085,8 @@ function AppPageContent() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">From Language</label>
                     <select 
                       id="sourceLanguage"
+                      value={sourceLanguage}
+                      onChange={(e) => setSourceLanguage(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="auto">Auto-detect</option>
@@ -1106,6 +1109,8 @@ function AppPageContent() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">To Language</label>
                     <select 
                       id="targetLanguage"
+                      value={targetLanguage}
+                      onChange={(e) => setTargetLanguage(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="en">English</option>
@@ -1129,15 +1134,36 @@ function AppPageContent() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Translation Mode</label>
                   <div className="flex space-x-4">
                     <label className="inline-flex items-center">
-                      <input type="radio" name="translationMode" value="sentence" defaultChecked className="mr-2" />
+                      <input 
+                        type="radio" 
+                        name="translationMode" 
+                        value="sentence" 
+                        checked={translationMode === 'sentence'}
+                        onChange={(e) => setTranslationMode(e.target.value)}
+                        className="mr-2" 
+                      />
                       Sentence by Sentence
                     </label>
                     <label className="inline-flex items-center">
-                      <input type="radio" name="translationMode" value="paragraph" className="mr-2" />
+                      <input 
+                        type="radio" 
+                        name="translationMode" 
+                        value="paragraph" 
+                        checked={translationMode === 'paragraph'}
+                        onChange={(e) => setTranslationMode(e.target.value)}
+                        className="mr-2" 
+                      />
                       Paragraph by Paragraph
                     </label>
                     <label className="inline-flex items-center">
-                      <input type="radio" name="translationMode" value="full" className="mr-2" />
+                      <input 
+                        type="radio" 
+                        name="translationMode" 
+                        value="full" 
+                        checked={translationMode === 'full'}
+                        onChange={(e) => setTranslationMode(e.target.value)}
+                        className="mr-2" 
+                      />
                       Full Text
                     </label>
                   </div>
