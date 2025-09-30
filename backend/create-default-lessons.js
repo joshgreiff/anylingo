@@ -46,25 +46,42 @@ This special day teaches an important lesson: it is okay not to be perfect. Ever
         category: "daily",
         difficulty: "intermediate",
         tags: ["culture", "finland", "learning", "failure"]
+    },
+    {
+        title: "The Alchemist - The Personal Legend",
+        content: {
+            original: `"It's the possibility of having a dream come true that makes life interesting," he thought, as he looked again at the position of the sun, and changed course.
+
+The boy was becoming more and more convinced that alchemy could be learned in one's daily life. "Also," said the old man, speaking to the boy, "when you want something, all the universe conspires in helping you to achieve it."
+
+That's what the old king had said. The boy thought about that for a while as he contemplated the levanter that now seemed to blow more gently. He had never thought about the fact that when you really want something, all the universe conspires in making your dream come true.
+
+"Before I came here, I had seen signs in the clouds and in the stones. But it is different now. Now it is not the signs that are important, but what they mean. The omens are the individual language in which God speaks to you. My heart is beginning to listen to what the desert has to teach."
+
+He had always believed that the sheep were able to understand what he said. So there were times when he read them parts of his books that had made an impression on him, or when he would tell them of the loneliness or the happiness of a shepherd in the fields. Sometimes he would comment to them on the things he had seen in the villages they passed.
+
+But for the past few days he had spoken to them about only one thing: the girl, the merchant's daughter. He had been telling the sheep that they didn't have to worry about being afraid of the unknown. Because it was the unknown that had made him seek out the merchant's daughter.`,
+            translated: ""
+        },
+        languages: {
+            source: "en",
+            target: "pt"
+        },
+        category: "daily",
+        difficulty: "intermediate",
+        tags: ["literature", "philosophy", "dreams", "paulo coelho"]
     }
-] 
+]
+
 const Lesson = require('./src/models/Lesson');
 
 async function createDefaultLessonsForUser(userId, targetLanguage = 'es') {
     try {
-        console.log(`Creating default lessons for user ${userId} with target language ${targetLanguage}`);
+        console.log(`Creating default lessons for user ${userId}`);
         
-        // Filter lessons by target language or create all if language matches
-        const lessonsToCreate = defaultLessons.filter(lesson => 
-            lesson.languages.target === targetLanguage
-        );
-
-        // If no lessons match the target language, create the first one anyway
-        const lessons = lessonsToCreate.length > 0 ? lessonsToCreate : [defaultLessons[0]];
-
-        // Create lessons with user ID
+        // Give all users all default lessons regardless of target language
         const createdLessons = await Promise.all(
-            lessons.map((lessonTemplate, index) => {
+            defaultLessons.map((lessonTemplate, index) => {
                 const lesson = new Lesson({
                     user: userId,
                     title: lessonTemplate.title,
