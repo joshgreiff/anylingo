@@ -355,9 +355,14 @@ function AppPageContent() {
       setTimeout(() => setMessage(''), 3000)
     } catch (error) {
       console.error('Translation error:', error)
-      translatedTextElement.innerHTML = '<p class="text-red-500 text-center">Translation failed. Please try again.</p>'
-      setMessage('Translation failed. Please try again.')
-      setTimeout(() => setMessage(''), 3000)
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+      translatedTextElement.innerHTML = `<div class="text-red-500 text-center">
+        <p class="font-semibold mb-2">Translation failed</p>
+        <p class="text-sm">${errorMsg}</p>
+        <p class="text-sm mt-2">The free translation service may be temporarily unavailable. Please try again in a moment.</p>
+      </div>`
+      setMessage('Translation failed. Please try again later.')
+      setTimeout(() => setMessage(''), 5000)
     }
     
     setLoading(false)
@@ -1059,7 +1064,7 @@ function AppPageContent() {
               <div className="space-y-6">
                 <div className="bg-blue-50 p-4 rounded-md border border-blue-200">
                   <h3 className="font-semibold text-blue-900 mb-2">Active Lesson: {currentLesson.title}</h3>
-                  <p className="text-sm text-blue-700">Working with your active lesson content</p>
+                  <p className="text-sm text-blue-700">Translating content from this lesson. You can edit the text below or paste your own.</p>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1157,8 +1162,14 @@ function AppPageContent() {
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
-                <p className="mb-4">No active lesson selected</p>
-                <p className="text-sm">Go to the Content section and click "Set Active" on a lesson to start working with it.</p>
+                <p className="mb-4 font-semibold text-lg">No active lesson selected</p>
+                <p className="text-sm mb-2">To translate content:</p>
+                <ol className="text-sm text-left max-w-md mx-auto space-y-2">
+                  <li>1. Go to the <strong>Content</strong> section</li>
+                  <li>2. Click <strong>"Set Active"</strong> on the lesson you want to translate</li>
+                  <li>3. Return to the <strong>Translation</strong> section</li>
+                  <li>4. The lesson text will appear and you can translate it</li>
+                </ol>
               </div>
             )}
           </section>
