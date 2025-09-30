@@ -1,4 +1,20 @@
+'use client'
+
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+
 export default function HomePage() {
+  const router = useRouter()
+
+  useEffect(() => {
+    // Check if user is already logged in
+    const token = localStorage.getItem('anylingo_token')
+    if (token) {
+      // Redirect to app if already logged in
+      router.push('/app')
+    }
+  }, [router])
+
   return (
     <div className="font-sans bg-white">
       {/* Navigation */}
