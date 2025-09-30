@@ -145,7 +145,8 @@ const lessonSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-const Lesson = mongoose.model('Lesson', lessonSchema);
+// Prevent OverwriteModelError by checking if model already exists
+const Lesson = mongoose.models.Lesson || mongoose.model('Lesson', lessonSchema);
 
 // User registration
 app.post('/api/auth/register', async (req, res) => {
