@@ -261,11 +261,20 @@ function AppPageContent() {
         const data = await response.json()
         
         // Check if we got a valid translation
-        if (data && data[0] && data[0][0] && data[0][0][0]) {
-          return data[0][0][0]
-        } else {
-          throw new Error('Incomplete translation response')
+        // Google Translate API returns an array of translation segments
+        if (data && data[0] && Array.isArray(data[0])) {
+          // Concatenate all translation segments
+          const translatedText = data[0]
+            .map((segment: any) => segment[0])
+            .filter((text: any) => text)
+            .join('')
+          
+          if (translatedText) {
+            return translatedText
+          }
         }
+        
+        throw new Error('Incomplete translation response')
       } else {
         throw new Error(`Translation failed: ${response.status}`)
       }
@@ -306,6 +315,8 @@ function AppPageContent() {
     const originalTextElement = document.getElementById('originalText') as HTMLTextAreaElement
     const translatedTextElement = document.getElementById('translatedText') as HTMLDivElement
 
+    console.log('Translation params:', { sourceLanguage, targetLanguage, translationMode })
+
     if (targetLanguage === 'auto') {
       setMessage('Please select a target language.')
       setTimeout(() => setMessage(''), 3000)
@@ -313,6 +324,7 @@ function AppPageContent() {
     }
 
     setLoading(true)
+    // Clear previous translation
     translatedTextElement.innerHTML = '<p class="text-center text-gray-500">Translating...</p>'
 
     try {
