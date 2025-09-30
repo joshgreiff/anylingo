@@ -919,23 +919,24 @@ function AppPageContent() {
                     ) : (
                       // Display mode
                       <div className="flex justify-between items-start">
-                        <div className="flex items-start gap-3">
-                          <div className="drag-handle mt-1 text-gray-400 hover:text-gray-600 cursor-move">
+                        <div className="flex items-start gap-3 flex-1">
+                          <div className="mt-1 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing text-xl">
                             ⋮⋮
                           </div>
-                          <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-lg font-semibold text-gray-900">{lesson.title}</h3>
-                            {currentLesson?._id === lesson._id && (
-                              <span className="px-2 py-1 text-xs bg-blue-600 text-white rounded-full">Active</span>
-                            )}
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-lg font-semibold text-gray-900">{lesson.title}</h3>
+                              {currentLesson?._id === lesson._id && (
+                                <span className="px-2 py-1 text-xs bg-blue-600 text-white rounded-full">Active</span>
+                              )}
+                            </div>
+                            <p className="text-gray-600 text-sm mt-1">
+                              {(lesson.content?.original || lesson.content)?.substring(0, 100)}...
+                            </p>
+                            <p className="text-xs text-gray-500 mt-2">
+                              Language: {(lesson.languages?.target || lesson.targetLanguage)?.toUpperCase()} • Created: {new Date(lesson.createdAt).toLocaleDateString()}
+                            </p>
                           </div>
-                          <p className="text-gray-600 text-sm mt-1">
-                            {(lesson.content?.original || lesson.content)?.substring(0, 100)}...
-                          </p>
-                          <p className="text-xs text-gray-500 mt-2">
-                            Language: {(lesson.languages?.target || lesson.targetLanguage)?.toUpperCase()} • Created: {new Date(lesson.createdAt).toLocaleDateString()}
-                          </p>
                         </div>
                         <div className="flex space-x-2">
                           {currentLesson?._id !== lesson._id && (

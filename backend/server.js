@@ -21,7 +21,9 @@ connectDB();
 // Middleware
 app.use(helmet());
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production' ? (process.env.FRONTEND_URL || 'https://www.anylingo.net') : true,
+    origin: process.env.NODE_ENV === 'production' 
+        ? [process.env.FRONTEND_URL || 'https://www.anylingo.net', 'http://localhost:3000', 'http://localhost:3001']
+        : true,
     credentials: true
 }));
 app.use(morgan('combined'));
