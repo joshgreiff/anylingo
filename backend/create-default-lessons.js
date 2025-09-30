@@ -48,3 +48,46 @@ This special day teaches an important lesson: it is okay not to be perfect. Ever
         tags: ["culture", "finland", "learning", "failure"]
     }
 ] 
+const Lesson = require('./src/models/Lesson');
+
+async function createDefaultLessonsForUser(userId, targetLanguage = 'es') {
+    try {
+        console.log(`Creating default lessons for user ${userId} with target language ${targetLanguage}`);
+        
+        // Filter lessons by target language or create all if language matches
+        const lessonsToCreate = defaultLessons.filter(lesson => 
+            lesson.languages.target === targetLanguage
+        );
+
+        // If no lessons match the target language, create the first one anyway
+        const lessons = lessonsToCreate.length > 0 ? lessonsToCreate : [defaultLessons[0]];
+
+        // Create lessons with user ID
+        const createdLessons = await Promise.all(
+            lessons.map((lessonTemplate, index) => {
+                const lesson = new Lesson({
+                    user: userId,
+                    title: lessonTemplate.title,
+                    content: lessonTemplate.content,
+                    languages: lessonTemplate.languages,
+                    category: lessonTemplate.category,
+                    difficulty: lessonTemplate.difficulty,
+                    tags: lessonTemplate.tags,
+                    order: index
+                });
+                return lesson.save();
+            })
+        );
+
+        console.log(`Successfully created ${createdLessons.length} default lessons for user ${userId}`);
+        return createdLessons;
+    } catch (error) {
+        console.error('Error creating default lessons:', error);
+        throw error;
+    }
+}
+
+module.exports = {
+    defaultLessons,
+    createDefaultLessonsForUser
+};
