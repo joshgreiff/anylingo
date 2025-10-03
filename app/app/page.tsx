@@ -1344,15 +1344,13 @@ function AppPageContent() {
                 <p className="text-gray-600 text-sm">Highlight words or phrases you don't understand, then translate them</p>
               </button>
               
-              <a 
-                href="https://anylingo03.manus.space/" 
-                target="_blank" 
-                className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow block"
+              <button 
+                onClick={() => setCurrentDrill('drill3')}
+                className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${currentDrill === 'drill3' ? 'bg-blue-50 border-blue-500' : 'border-gray-200'}`}
               >
-                <h3 className="text-lg font-semibold mb-2">Drill 3: Listening Comprehension</h3>
-                <p className="text-gray-600 text-sm mb-3">Advanced listening exercises</p>
-                <div className="text-blue-600 hover:text-blue-800 text-sm font-medium">Open External Tool →</div>
-              </a>
+                <h3 className="text-lg font-semibold mb-2">Drill 3: Read and Speak Simultaneously</h3>
+                <p className="text-gray-600 text-sm">Read along while the text is being spoken aloud</p>
+              </button>
               
               <button 
                 onClick={() => setCurrentDrill('drill4')}
@@ -1362,13 +1360,15 @@ function AppPageContent() {
                 <p className="text-gray-600 text-sm">Record yourself reading the lesson and compare with the original</p>
               </button>
               
-              <button 
-                onClick={() => setCurrentDrill('drill5')}
-                className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${currentDrill === 'drill5' ? 'bg-blue-50 border-blue-500' : 'border-gray-200'}`}
+              <a 
+                href="https://anylingo03.manus.space/" 
+                target="_blank" 
+                className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow block"
               >
                 <h3 className="text-lg font-semibold mb-2">Drill 5: Develop Fluency</h3>
-                <p className="text-gray-600 text-sm">Develop fluency using the fluency measurement tool</p>
-              </button>
+                <p className="text-gray-600 text-sm mb-3">Develop fluency using the fluency measurement tool</p>
+                <div className="text-blue-600 hover:text-blue-800 text-sm font-medium">Open Fluency Tool →</div>
+              </a>
             </div>
 
             {/* Drill 1: Listen and Follow */}
@@ -1507,48 +1507,48 @@ function AppPageContent() {
               </div>
             )}
 
-            {/* Drill 5: Develop Fluency */}
-            {currentDrill === 'drill5' && (
+            {/* Drill 3: Read and Speak Simultaneously */}
+            {currentDrill === 'drill3' && (
               <div className="space-y-4">
-                <p className="text-gray-700">Develop fluency and measure it quantitatively using the fluency measurement tool.</p>
+                <p className="text-gray-700">Read along while the text is being spoken aloud. This helps develop reading fluency and pronunciation.</p>
                 
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Custom Lesson Text</label>
-                    <textarea 
-                      rows={8} 
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      defaultValue={currentLesson ? (currentLesson.content?.original || currentLesson.content) : ''}
-                      placeholder="Enter text for fluency practice..."
-                    />
-                  </div>
-                  
-                  <div className="flex space-x-4">
-                    <button className="px-6 py-3 bg-green-600 text-white rounded-md shadow hover:bg-green-700 transition-colors">
-                      Start Fluency Test
-                    </button>
-                    <button className="px-6 py-3 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 transition-colors">
-                      Calculate WPM
-                    </button>
-                  </div>
-                  
-                  <div className="bg-blue-50 p-4 rounded-md">
-                    <h4 className="font-semibold mb-2">Fluency Metrics</h4>
-                    <div className="grid grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-600">Words per minute:</span>
-                        <div className="font-semibold">-- WPM</div>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Accuracy:</span>
-                        <div className="font-semibold">--%</div>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Fluency Score:</span>
-                        <div className="font-semibold">--/100</div>
-                      </div>
-                    </div>
-                  </div>
+                <div className="flex space-x-4">
+                  <button 
+                    onClick={startDrill1}
+                    disabled={!currentLesson || isPlaying}
+                    className="px-6 py-3 bg-purple-600 text-white rounded-md shadow hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Start
+                  </button>
+                  <button 
+                    onClick={pauseReading}
+                    disabled={!isPlaying || isPaused}
+                    className="px-6 py-3 bg-green-600 text-white rounded-md shadow hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Pause
+                  </button>
+                  <button 
+                    onClick={continueReading}
+                    disabled={!isPaused}
+                    className="px-6 py-3 bg-green-600 text-white rounded-md shadow hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Continue
+                  </button>
+                  <button 
+                    onClick={stopReading}
+                    disabled={!isPlaying && !isPaused}
+                    className="px-6 py-3 bg-red-600 text-white rounded-md shadow hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Stop
+                  </button>
+                </div>
+                
+                <div id="drill3Content" className="border p-4 rounded-md bg-gray-50 h-96 overflow-y-auto">
+                  {currentLesson ? (
+                    <pre className="whitespace-pre-wrap">{currentLesson.content?.original || currentLesson.content}</pre>
+                  ) : (
+                    <p className="text-gray-500 text-center">No active lesson. Go to Content section and click "Set Active" on a lesson.</p>
+                  )}
                 </div>
               </div>
             )}
