@@ -28,6 +28,11 @@ function AppPageContent() {
   const [sourceLanguage, setSourceLanguage] = useState('auto')
   const [targetLanguage, setTargetLanguage] = useState('es')
   const [translationMode, setTranslationMode] = useState('sentence')
+  const [highlightingEnabled, setHighlightingEnabled] = useState(false)
+  const [isRecordingDrill, setIsRecordingDrill] = useState(false)
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -511,6 +516,111 @@ function AppPageContent() {
       // Revert on error
       loadLessons()
     }
+  }
+
+  // Drill 1: Start Listen and Follow
+  const startDrill1 = () => {
+    if (!currentLesson) return
+    startReading() // Reuse the existing read aloud functionality
+  }
+
+  // Drill 2: Enable/Disable Highlighting
+  const toggleHighlighting = () => {
+    setHighlightingEnabled(!highlightingEnabled)
+  }
+
+  const handleTextSelection = () => {
+    const selection = window.getSelection()
+    if (!selection || !selection.toString().trim()) return
+    
+    const range = selection.getRangeAt(0)
+    const span = document.createElement('span')
+    span.style.backgroundColor = 'yellow'
+    span.textContent = selection.toString()
+    
+    try {
+      range.deleteContents()
+      range.insertNode(span)
+      selection.removeAllRanges()
+    } catch (error) {
+      console.error('Error highlighting text:', error)
+    }
+  }
+
+  const clearDrillHighlights = () => {
+    // Remove all yellow highlights from drill2 content
+    const content = document.getElementById('drill2Content')
+    if (content) {
+      const highlights = content.querySelectorAll('span[style*="background-color: yellow"]')
+      highlights.forEach(span => {
+        const text = span.textContent
+        const textNode = document.createTextNode(text || '')
+        span.parentNode?.replaceChild(textNode, span)
+      })
+    }
+  }
+
+  // Drill 4: Recording
+  const startDrillRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      const chunks: Blob[] = []
+
+      recorder.addEventListener('dataavailable', (e) => {
+        chunks.push(e.data)
+      })
+
+      recorder.addEventListener('stop', () => {
+        const blob = new Blob(chunks, { type: 'audio/wav' })
+        const url = URL.createObjectURL(blob)
+        setAudioBlob(blob)
+        setAudioUrl(url)
+        setIsRecordingDrill(false)
+      })
+
+      recorder.start()
+      setMediaRecorder(recorder)
+      setIsRecordingDrill(true)
+    } catch (error) {
+      console.error('Error starting recording:', error)
+      alert('Could not access microphone. Please check permissions.')
+    }
+  }
+
+  const stopDrillRecording = () => {
+    if (mediaRecorder && isRecordingDrill) {
+      mediaRecorder.stop()
+      mediaRecorder.stream.getTracks().forEach(track => track.stop())
+    }
+  }
+
+  const playDrillRecording = () => {
+    if (audioUrl) {
+      const audio = new Audio(audioUrl)
+      audio.play()
+    }
+  }
+
+  const saveDrillRecording = () => {
+    if (audioBlob && currentLesson) {
+      const url = URL.createObjectURL(audioBlob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${currentLesson.title}_recording.wav`
+      a.click()
+      URL.revokeObjectURL(url)
+    }
+  }
+
+  const resetDrillRecording = () => {
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl)
+    }
+    setAudioBlob(null)
+    setAudioUrl(null)
+    setIsRecordingDrill(false)
+    setMediaRecorder(null)
   }
 
   const clearWordHighlights = () => {
@@ -1267,16 +1377,32 @@ function AppPageContent() {
                 <p className="text-gray-700">Listen to the lesson being read aloud and follow along with the text. This helps with comprehension and pronunciation.</p>
                 
                 <div className="flex space-x-4">
-                  <button className="px-6 py-3 bg-purple-600 text-white rounded-md shadow hover:bg-purple-700 transition-colors">
+                  <button 
+                    onClick={startDrill1}
+                    disabled={!currentLesson || isPlaying}
+                    className="px-6 py-3 bg-purple-600 text-white rounded-md shadow hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     Start
                   </button>
-                  <button className="px-6 py-3 bg-green-600 text-white rounded-md shadow hover:bg-green-700 transition-colors" disabled>
+                  <button 
+                    onClick={pauseReading}
+                    disabled={!isPlaying || isPaused}
+                    className="px-6 py-3 bg-green-600 text-white rounded-md shadow hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     Pause
                   </button>
-                  <button className="px-6 py-3 bg-green-600 text-white rounded-md shadow hover:bg-green-700 transition-colors" disabled>
+                  <button 
+                    onClick={continueReading}
+                    disabled={!isPaused}
+                    className="px-6 py-3 bg-green-600 text-white rounded-md shadow hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     Continue
                   </button>
-                  <button className="px-6 py-3 bg-red-600 text-white rounded-md shadow hover:bg-red-700 transition-colors" disabled>
+                  <button 
+                    onClick={stopReading}
+                    disabled={!isPlaying && !isPaused}
+                    className="px-6 py-3 bg-red-600 text-white rounded-md shadow hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     Stop
                   </button>
                 </div>
@@ -1297,15 +1423,28 @@ function AppPageContent() {
                 <p className="text-gray-700">Highlight words or phrases you don't understand, then translate them.</p>
                 
                 <div className="flex space-x-4">
-                  <button className="px-6 py-3 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 transition-colors">
-                    Enable Highlighting
+                  <button 
+                    onClick={toggleHighlighting}
+                    disabled={!currentLesson}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {highlightingEnabled ? 'Disable Highlighting' : 'Enable Highlighting'}
                   </button>
-                  <button className="px-6 py-3 bg-gray-600 text-white rounded-md shadow hover:bg-gray-700 transition-colors">
+                  <button 
+                    onClick={clearDrillHighlights}
+                    disabled={!currentLesson}
+                    className="px-6 py-3 bg-gray-600 text-white rounded-md shadow hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     Clear Highlights
                   </button>
                 </div>
                 
-                <div className="border p-4 rounded-md bg-gray-50 h-96 overflow-y-auto cursor-text">
+                <div 
+                  id="drill2Content"
+                  className="border p-4 rounded-md bg-gray-50 h-96 overflow-y-auto cursor-text"
+                  onMouseUp={highlightingEnabled ? handleTextSelection : undefined}
+                  style={{ userSelect: highlightingEnabled ? 'text' : 'auto' }}
+                >
                   {currentLesson ? (
                     <div className="whitespace-pre-wrap">{currentLesson.content?.original || currentLesson.content}</div>
                   ) : (
@@ -1320,18 +1459,41 @@ function AppPageContent() {
               <div className="space-y-4">
                 <p className="text-gray-700">Record yourself reading the lesson and compare with the original.</p>
                 
-                <div className="flex space-x-4">
-                  <button className="px-6 py-3 bg-red-600 text-white rounded-md shadow hover:bg-red-700 transition-colors">
-                    Start Recording
+                <div className="flex flex-wrap gap-4">
+                  <button 
+                    onClick={startDrillRecording}
+                    disabled={!currentLesson || isRecordingDrill}
+                    className="px-6 py-3 bg-red-600 text-white rounded-md shadow hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isRecordingDrill ? 'Recording...' : 'Start Recording'}
                   </button>
-                  <button className="px-6 py-3 bg-gray-600 text-white rounded-md shadow hover:bg-gray-700 transition-colors" disabled>
+                  <button 
+                    onClick={stopDrillRecording}
+                    disabled={!isRecordingDrill}
+                    className="px-6 py-3 bg-gray-600 text-white rounded-md shadow hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     Stop Recording
                   </button>
-                  <button className="px-6 py-3 bg-green-600 text-white rounded-md shadow hover:bg-green-700 transition-colors" disabled>
+                  <button 
+                    onClick={playDrillRecording}
+                    disabled={!audioUrl}
+                    className="px-6 py-3 bg-green-600 text-white rounded-md shadow hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     Play Recording
                   </button>
-                  <button className="px-6 py-3 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 transition-colors" disabled>
+                  <button 
+                    onClick={saveDrillRecording}
+                    disabled={!audioBlob}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     Save Recording
+                  </button>
+                  <button 
+                    onClick={resetDrillRecording}
+                    disabled={!audioUrl}
+                    className="px-6 py-3 bg-yellow-600 text-white rounded-md shadow hover:bg-yellow-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Reset
                   </button>
                 </div>
                 
