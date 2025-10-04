@@ -1786,11 +1786,6 @@ function AppPageContent() {
               </div>
             </div>
           </section>
-
-          {/* Account Section */}
-          <section id="account" className={`max-w-4xl mx-auto ${currentView === 'account' ? 'block' : 'hidden'}`}>
-            <AccountManagement />
-          </section>
         </main>
       </div>
     </>
