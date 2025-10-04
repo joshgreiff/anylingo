@@ -377,10 +377,23 @@ router.get('/status', auth, async (req, res) => {
             }
         }
 
+        // Format response for frontend
+        const status = user.subscription.status || 'free';
+        const plan = user.subscription.status === 'trial' ? 'trial' : 
+                     user.subscription.status === 'monthly' ? 'monthly' :
+                     user.subscription.status === 'annual' ? 'annual' :
+                     user.subscription.status === 'free' ? 'free' : 'free';
+        
+        const isTrialActive = status === 'trial' && user.subscription.endDate && new Date(user.subscription.endDate) > new Date();
+        
         res.json({
-            subscription: user.subscription,
-            squareSubscription,
-            isActive: user.hasActiveSubscription()
+            status,
+            plan,
+            nextBillingDate: user.subscription.endDate,
+            trialEndDate: isTrialActive ? user.subscription.endDate : null,
+            isTrialActive,
+            canCancel: status === 'monthly' || status === 'annual' || status === 'trial',
+            canUpgrade: status === 'monthly'
         });
 
     } catch (error) {
