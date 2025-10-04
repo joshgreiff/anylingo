@@ -20,10 +20,69 @@ export default function AccountManagement() {
   const [actionLoading, setActionLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState<'success' | 'error' | ''>('')
+  const [nativeLanguage, setNativeLanguage] = useState('')
+  const [targetLanguage, setTargetLanguage] = useState('')
+  const [savingLanguages, setSavingLanguages] = useState(false)
 
   useEffect(() => {
     fetchSubscriptionStatus()
+    fetchUserPreferences()
   }, [])
+
+  const fetchUserPreferences = async () => {
+    try {
+      const token = localStorage.getItem('anylingo_token')
+      const response = await fetch(`${API_URL}/api/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setNativeLanguage(data.user.preferences?.nativeLanguage || '')
+        setTargetLanguage(data.user.preferences?.targetLanguages?.[0] || '')
+      }
+    } catch (error) {
+      console.error('Error fetching user preferences:', error)
+    }
+  }
+
+  const saveLanguagePreferences = async () => {
+    setSavingLanguages(true)
+    setMessage('')
+
+    try {
+      const token = localStorage.getItem('anylingo_token')
+      const response = await fetch(`${API_URL}/api/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          preferences: {
+            nativeLanguage,
+            targetLanguages: [targetLanguage]
+          }
+        })
+      })
+
+      if (response.ok) {
+        setMessage('Language preferences saved successfully!')
+        setMessageType('success')
+      } else {
+        setMessage('Failed to save language preferences')
+        setMessageType('error')
+      }
+    } catch (error) {
+      console.error('Error saving preferences:', error)
+      setMessage('Error saving language preferences')
+      setMessageType('error')
+    } finally {
+      setSavingLanguages(false)
+    }
+  }
 
   const fetchSubscriptionStatus = async () => {
     try {
@@ -156,6 +215,73 @@ export default function AccountManagement() {
           {message}
         </div>
       )}
+
+      {/* Language Preferences Card */}
+      <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+        <h3 className="text-xl font-semibold text-gray-900 mb-4">Language Preferences</h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="nativeLanguage" className="block text-sm font-medium text-gray-700 mb-2">
+              Native Language
+            </label>
+            <select
+              id="nativeLanguage"
+              value={nativeLanguage}
+              onChange={(e) => setNativeLanguage(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select your native language</option>
+              <option value="en">English</option>
+              <option value="es">Spanish</option>
+              <option value="fr">French</option>
+              <option value="de">German</option>
+              <option value="it">Italian</option>
+              <option value="pt">Portuguese</option>
+              <option value="ru">Russian</option>
+              <option value="ja">Japanese</option>
+              <option value="ko">Korean</option>
+              <option value="zh">Chinese</option>
+              <option value="ar">Arabic</option>
+              <option value="hi">Hindi</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="targetLanguage" className="block text-sm font-medium text-gray-700 mb-2">
+              Target Language (Learning)
+            </label>
+            <select
+              id="targetLanguage"
+              value={targetLanguage}
+              onChange={(e) => setTargetLanguage(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select your target language</option>
+              <option value="en">English</option>
+              <option value="es">Spanish</option>
+              <option value="fr">French</option>
+              <option value="de">German</option>
+              <option value="it">Italian</option>
+              <option value="pt">Portuguese</option>
+              <option value="ru">Russian</option>
+              <option value="ja">Japanese</option>
+              <option value="ko">Korean</option>
+              <option value="zh">Chinese</option>
+              <option value="ar">Arabic</option>
+              <option value="hi">Hindi</option>
+            </select>
+          </div>
+
+          <button
+            onClick={saveLanguagePreferences}
+            disabled={savingLanguages}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-3 px-6 rounded-lg font-medium transition-colors"
+          >
+            {savingLanguages ? 'Saving...' : 'Save Language Preferences'}
+          </button>
+        </div>
+      </div>
 
       {/* Subscription Status Card */}
       <div className="bg-white rounded-lg shadow-lg p-6 mb-8">

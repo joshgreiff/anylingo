@@ -19,6 +19,7 @@ function SignupPageContent() {
     fullName: '',
     email: '',
     password: '',
+    nativeLanguage: '',
     targetLanguage: '',
     promoCode: '',
     terms: false
@@ -60,13 +61,33 @@ function SignupPageContent() {
       const nameParts = fullName.trim().split(" ")
       const firstName = nameParts[0]
       const lastName = nameParts.slice(1).join(" ") || nameParts[0]
+      const email = formData.get("email") as string
+      
+      // Check if email already exists before proceeding
+      const checkResponse = await fetch(`${API_URL}/api/auth/check-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email })
+      })
+
+      const checkData = await checkResponse.json()
+
+      if (checkData.exists) {
+        setMessage("An account with this email already exists. Please log in instead.")
+        setMessageType("error")
+        setLoading(false)
+        return
+      }
       
       const userData = {
         firstName,
         lastName,
-        email: formData.get("email") as string,
+        email,
         password: formData.get("password") as string,
         preferences: {
+          nativeLanguage: formData.get("nativeLanguage") as string,
           targetLanguages: [formData.get("targetLanguage") as string]
         },
         promoCode: formData.get("promoCode") as string
@@ -84,7 +105,7 @@ function SignupPageContent() {
       }, 1500)
       
     } catch (error) {
-      setMessage("Error saving information. Please try again.")
+      setMessage("Error checking email. Please try again.")
       setMessageType("error")
     } finally {
       setLoading(false)
@@ -243,7 +264,33 @@ function SignupPageContent() {
                     </div>
 
                     <div>
-                      <label htmlFor="targetLanguage" className="block text-sm font-medium text-gray-700 mb-2">Primary Target Language</label>
+                      <label htmlFor="nativeLanguage" className="block text-sm font-medium text-gray-700 mb-2">Native Language</label>
+                      <select 
+                        id="nativeLanguage" 
+                        name="nativeLanguage" 
+                        required 
+                        value={formData.nativeLanguage}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">Select your native language</option>
+                        <option value="en">English</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                        <option value="it">Italian</option>
+                        <option value="pt">Portuguese</option>
+                        <option value="ru">Russian</option>
+                        <option value="ja">Japanese</option>
+                        <option value="ko">Korean</option>
+                        <option value="zh">Chinese</option>
+                        <option value="ar">Arabic</option>
+                        <option value="hi">Hindi</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label htmlFor="targetLanguage" className="block text-sm font-medium text-gray-700 mb-2">Target Language (Learning)</label>
                       <select 
                         id="targetLanguage" 
                         name="targetLanguage" 

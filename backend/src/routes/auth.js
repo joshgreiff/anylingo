@@ -5,6 +5,24 @@ const auth = require('../middleware/auth');
 const { createDefaultLessonsForUser } = require('../../create-default-lessons');
 const router = express.Router();
 
+// Check if email exists
+router.post('/check-email', async (req, res) => {
+    try {
+        const { email } = req.body;
+        
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+
+        const existingUser = await User.findOne({ email });
+        
+        res.json({ exists: !!existingUser });
+    } catch (error) {
+        console.error('Check email error:', error);
+        res.status(500).json({ error: 'Failed to check email' });
+    }
+});
+
 // Register new user
 router.post('/register', async (req, res) => {
     try {
@@ -85,17 +103,25 @@ router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
 
+        console.log('Login attempt for:', email);
+
         // Find user by email
         const user = await User.findOne({ email });
         if (!user) {
+            console.log('User not found:', email);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
+
+        console.log('User found, checking password...');
 
         // Check password
         const isPasswordValid = await user.comparePassword(password);
         if (!isPasswordValid) {
+            console.log('Password invalid for:', email);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
+
+        console.log('Login successful for:', email);
 
         // Update last login
         user.lastLogin = new Date();

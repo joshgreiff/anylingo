@@ -135,4 +135,5 @@ lessonSchema.index({ user: 1, category: 1 });
 lessonSchema.index({ user: 1, languages: 1 });
 lessonSchema.index({ user: 1, order: 1 });
 
-module.exports = mongoose.model('Lesson', lessonSchema); 
+// Prevent OverwriteModelError by checking if model already exists
+module.exports = mongoose.models.Lesson || mongoose.model('Lesson', lessonSchema); 

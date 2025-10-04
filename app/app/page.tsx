@@ -33,6 +33,8 @@ function AppPageContent() {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
+  const [selectedVoice, setSelectedVoice] = useState<number>(0)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -59,6 +61,24 @@ function AppPageContent() {
       } catch (error) {
         console.error('Error loading current lesson:', error)
       }
+    }
+
+    // Load available voices for text-to-speech
+    const loadVoices = () => {
+      if (window.speechSynthesis) {
+        const availableVoices = window.speechSynthesis.getVoices()
+        if (availableVoices.length > 0) {
+          setVoices(availableVoices)
+        }
+      }
+    }
+
+    // Load voices initially
+    loadVoices()
+
+    // Some browsers load voices asynchronously
+    if (window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = loadVoices
     }
   }, [router, searchParams])
 
@@ -399,6 +419,11 @@ function AppPageContent() {
     const text = currentLesson.content?.original || currentLesson.content
     const newUtterance = new SpeechSynthesisUtterance(text)
     
+    // Set selected voice if available
+    if (voices.length > 0 && voices[selectedVoice]) {
+      newUtterance.voice = voices[selectedVoice]
+    }
+    
     // Set speech rate
     newUtterance.rate = speechRate
     
@@ -437,6 +462,13 @@ function AppPageContent() {
   const pauseReading = () => {
     if (window.speechSynthesis && isPlaying) {
       window.speechSynthesis.pause()
+      
+      // Stop the highlighting interval when paused
+      if (highlightInterval) {
+        clearInterval(highlightInterval)
+        setHighlightInterval(null)
+      }
+      
       setIsPlaying(false)
       setIsPaused(true)
     }
@@ -447,6 +479,13 @@ function AppPageContent() {
       window.speechSynthesis.resume()
       setIsPlaying(true)
       setIsPaused(false)
+      
+      // Restart highlighting when resuming
+      // Note: The highlighting logic in startWordHighlighting handles the timing
+      // We just need to restart the interval check
+      if (currentLesson && wordBoundaries.length > 0) {
+        startWordHighlighting()
+      }
     }
   }
 
@@ -534,16 +573,72 @@ function AppPageContent() {
     if (!selection || !selection.toString().trim()) return
     
     const range = selection.getRangeAt(0)
+    const selectedText = selection.toString()
+    
+    // Create a container for the highlighted text and translation button
+    const container = document.createElement('span')
+    container.style.display = 'inline-block'
+    container.style.position = 'relative'
+    
+    // Create the highlighted text span
     const span = document.createElement('span')
     span.style.backgroundColor = 'yellow'
-    span.textContent = selection.toString()
+    span.style.cursor = 'pointer'
+    span.textContent = selectedText
+    
+    // Create the translation button
+    const translateBtn = document.createElement('button')
+    translateBtn.textContent = 'Translate'
+    translateBtn.className = 'ml-2 px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600'
+    translateBtn.onclick = (e) => {
+      e.stopPropagation()
+      translateSelectedText(selectedText)
+    }
+    
+    // Add both elements to container
+    container.appendChild(span)
+    container.appendChild(translateBtn)
     
     try {
       range.deleteContents()
-      range.insertNode(span)
+      range.insertNode(container)
       selection.removeAllRanges()
     } catch (error) {
       console.error('Error highlighting text:', error)
+    }
+  }
+
+  const translateSelectedText = async (text: string) => {
+    try {
+      // Use the current lesson's target language or default to Spanish
+      const targetLang = currentLesson?.languages?.target || 'es'
+      const translated = await translateText(text, 'auto', targetLang)
+      
+      // Create a popup to display the translation
+      const popup = document.createElement('div')
+      popup.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white border-2 border-blue-500 rounded-lg shadow-xl p-6 z-50 max-w-md'
+      popup.innerHTML = `
+        <div class="mb-4">
+          <h3 class="font-bold text-lg mb-2">Translation</h3>
+          <p class="text-gray-700 mb-2"><strong>Original:</strong> ${text}</p>
+          <p class="text-blue-700"><strong>Translation:</strong> ${translated}</p>
+        </div>
+        <button class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" onclick="this.parentElement.remove()">
+          Close
+        </button>
+      `
+      
+      document.body.appendChild(popup)
+      
+      // Auto-remove after 10 seconds
+      setTimeout(() => {
+        if (popup.parentElement) {
+          popup.remove()
+        }
+      }, 10000)
+    } catch (error) {
+      console.error('Translation error:', error)
+      alert('Translation failed. Please try again.')
     }
   }
 
@@ -788,62 +883,95 @@ function AppPageContent() {
     <>
       <div className="bg-gray-50 min-h-screen">
         {/* Header */}
-        <header className="header p-4 shadow-md" style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}}>
-          <div className="container mx-auto flex flex-wrap items-center justify-between">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-white">AnyLingo</h1>
-            </div>
-            
-            <div className="flex flex-wrap items-center space-x-2 md:space-x-4 mt-2 md:mt-0">
-              <button 
-                onClick={() => updateView('createLesson')}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow transition-colors"
-              >
-                Create a New Lesson
-              </button>
+        <header className="bg-white border-b-2 border-gray-200 shadow-sm">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center">
+                <h1 
+                  className="text-2xl font-bold text-indigo-600 cursor-pointer hover:text-indigo-700 transition-colors"
+                  onClick={() => updateView('home')}
+                >
+                  AnyLingo
+                </h1>
+              </div>
               
-              <button 
-                onClick={() => updateView('content')}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow transition-colors"
-              >
-                Content
-              </button>
-              
-              <button 
-                onClick={() => updateView('readAloud')}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow transition-colors"
-              >
-                ReadAloud
-              </button>
-              
-              <button 
-                onClick={() => updateView('translate')}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow transition-colors"
-              >
-                Translation
-              </button>
-              
-              <button 
-                onClick={() => updateView('drills')}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow transition-colors"
-              >
-                Drill Exercises
-              </button>
-              
-              <button 
-                onClick={() => updateView('record')}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow transition-colors"
-              >
-                Record
-              </button>
+              <nav className="flex flex-wrap items-center gap-2">
+                <button 
+                  onClick={() => updateView('createLesson')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    currentView === 'createLesson' 
+                      ? 'bg-indigo-600 text-white shadow-md' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  Create Lesson
+                </button>
+                
+                <button 
+                  onClick={() => updateView('content')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    currentView === 'content' 
+                      ? 'bg-indigo-600 text-white shadow-md' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  Content
+                </button>
+                
+                <button 
+                  onClick={() => updateView('readAloud')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    currentView === 'readAloud' 
+                      ? 'bg-indigo-600 text-white shadow-md' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  ReadAloud
+                </button>
+                
+                <button 
+                  onClick={() => updateView('translate')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    currentView === 'translate' 
+                      ? 'bg-indigo-600 text-white shadow-md' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  Translation
+                </button>
+                
+                <button 
+                  onClick={() => updateView('drills')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    currentView === 'drills' 
+                      ? 'bg-indigo-600 text-white shadow-md' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  Drills
+                </button>
+                
+                <button 
+                  onClick={() => updateView('record')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    currentView === 'record' 
+                      ? 'bg-indigo-600 text-white shadow-md' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  Record
+                </button>
 
-              <button 
-                id="logoutBtn" 
-                onClick={handleLogout}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md shadow transition-colors"
-              >
-                Logout
-              </button>
+                <div className="w-px h-8 bg-gray-300 mx-2"></div>
+
+                <button 
+                  id="logoutBtn" 
+                  onClick={handleLogout}
+                  className="px-4 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg font-medium transition-all"
+                >
+                  Logout
+                </button>
+              </nav>
             </div>
           </div>
         </header>
@@ -934,11 +1062,24 @@ function AppPageContent() {
               <div>
                 <label htmlFor="createLessonTargetLanguage" className="block text-sm font-medium text-gray-700 mb-2">Target Language</label>
                 <select id="createLessonTargetLanguage" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="en">English</option>
                   <option value="es">Spanish</option>
                   <option value="fr">French</option>
                   <option value="de">German</option>
                   <option value="it">Italian</option>
                   <option value="pt">Portuguese</option>
+                  <option value="ru">Russian</option>
+                  <option value="ja">Japanese</option>
+                  <option value="ko">Korean</option>
+                  <option value="zh">Chinese</option>
+                  <option value="ar">Arabic</option>
+                  <option value="hi">Hindi</option>
+                  <option value="nl">Dutch</option>
+                  <option value="sv">Swedish</option>
+                  <option value="pl">Polish</option>
+                  <option value="tr">Turkish</option>
+                  <option value="vi">Vietnamese</option>
+                  <option value="th">Thai</option>
                 </select>
               </div>
               
@@ -1118,13 +1259,10 @@ function AppPageContent() {
                   <p className="text-sm text-blue-700">Listen to your active lesson being read aloud</p>
                 </div>
                 
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-semibold mb-3">Lesson Text:</h3>
-                  <div id="readAloudContent" className="text-lg leading-relaxed mb-4 max-h-64 overflow-y-auto">
-                    <pre className="whitespace-pre-wrap">{currentLesson.content?.original || currentLesson.content}</pre>
-                  </div>
-                  
-                  <div className="flex space-x-3 mb-4">
+                {/* Controls at the top */}
+                <div className="bg-white border-2 border-gray-300 p-4 rounded-lg shadow-sm sticky top-0 z-10">
+                  <h3 className="font-semibold mb-3">Playback Controls:</h3>
+                  <div className="flex flex-wrap gap-3 mb-4">
                     <button 
                       onClick={startReading}
                       disabled={isPlaying || isPaused}
@@ -1159,15 +1297,33 @@ function AppPageContent() {
                     >
                       🔄 Loop {isLooping ? 'ON' : 'OFF'}
                     </button>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Browser Voice</label>
-                      <select className="w-full px-2 py-1 border border-gray-300 rounded text-sm">
-                        <option>Default Voice</option>
-                        <option>System Voice 1</option>
-                        <option>System Voice 2</option>
-                      </select>
-                      <p className="text-xs text-gray-500 mt-1">Voice selection depends on your browser and system</p>
-                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Browser Voice</label>
+                    <select 
+                      value={selectedVoice}
+                      onChange={(e) => setSelectedVoice(Number(e.target.value))}
+                      className="w-full px-2 py-1 border border-gray-300 rounded text-sm max-w-xs"
+                    >
+                      {voices.length === 0 ? (
+                        <option value={0}>No voices available</option>
+                      ) : (
+                        voices.map((voice, index) => (
+                          <option key={index} value={index}>
+                            {voice.name} ({voice.lang})
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">Select a voice for the target language</p>
+                  </div>
+                </div>
+                
+                {/* Lesson text below controls */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-semibold mb-3">Lesson Text:</h3>
+                  <div id="readAloudContent" className="text-lg leading-relaxed max-h-96 overflow-y-auto">
+                    <pre className="whitespace-pre-wrap">{currentLesson.content?.original || currentLesson.content}</pre>
                   </div>
                 </div>
               </div>
