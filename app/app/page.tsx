@@ -965,6 +965,17 @@ function AppPageContent() {
                 <div className="w-px h-8 bg-gray-300 mx-2"></div>
 
                 <button 
+                  onClick={() => updateView('account')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    currentView === 'account' 
+                      ? 'bg-indigo-600 text-white shadow-md' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  Account
+                </button>
+
+                <button 
                   id="logoutBtn" 
                   onClick={handleLogout}
                   className="px-4 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg font-medium transition-all"
@@ -1715,6 +1726,11 @@ function AppPageContent() {
                 <p>Select a drill exercise above to get started</p>
               </div>
             )}
+          </section>
+
+          {/* Account Section */}
+          <section id="account" className={`${currentView === 'account' ? 'block' : 'hidden'}`}>
+            <AccountManagement />
           </section>
 
           {/* Record Section */}
